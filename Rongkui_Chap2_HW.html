@@ -196,6 +196,8 @@ $(document).ready(function () {
 </div>
 
 
+<div id="homework" class="section level3">
+<h3>Homework</h3>
 <p>2E1. Which of the expressions below correspond to the statement: <em>the probability of rain on Monday</em>?<br />
 (1) Pr(rain)<br />
 (2) Pr(rain | Monday)<br />
@@ -325,6 +327,72 @@ Therefore, ||{Black side up}|| = 5;<br />
 Within the outcome space {Black side up}, 4 events, {Card 3 side A (black) up; Card 3 side B (black) up; Card 4 side A (black) up; Card 4 side B (black) up}, fall into set {Black side down}.<br />
 Therefore, Pr(Black side down|Black side up) = 4/5.</p>
 </blockquote>
+</div>
+<div id="lecture-note" class="section level3">
+<h3>Lecture Note:</h3>
+<div id="going-over-slides" class="section level4">
+<h4>Going over slides</h4>
+<ul>
+<li>instead of “probability of data if we assume model is true”, Bayesian statistics ask the question of “how probable is any model (e.g. each possible % of water on surface of Earth) given our data?”</li>
+</ul>
+</div>
+<div id="going-over-hw-qs" class="section level4">
+<h4>Going over HW q’s:</h4>
+<p>2M3</p>
+<pre class="r"><code>prior = c(0.5, 0.5)
+prob = c(0.7, 0) #the two theta's you want to test out: &quot;is theta = 0.7 (earth) or theta = 0 (mars)?&quot;
+likelihood = dbinom(0 , size = 1, prob=prob)
+usd_posterior = likelihood*prior
+posterior = usd_posterior/sum(usd_posterior)
+posterior</code></pre>
+<pre><code>## [1] 0.2307692 0.7692308</code></pre>
+<p>2H1:</p>
+<pre class="r"><code>prior = c(0.5, 0.5)
+prob = c(0.1, 0.2)
+likelihood = dbinom(1 , size = 1, prob=prob)
+usd_posterior = likelihood*prior
+posterior = usd_posterior/sum(usd_posterior)
+posterior</code></pre>
+<pre><code>## [1] 0.3333333 0.6666667</code></pre>
+<pre class="r"><code>sum(prob*posterior)</code></pre>
+<pre><code>## [1] 0.1666667</code></pre>
+<p>2M6</p>
+<table>
+<thead>
+<tr class="header">
+<th>Card</th>
+<th>Ways to pull from bag</th>
+<th>way to pull B side up</th>
+<th>product</th>
+<th>prob</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>WW</td>
+<td>3</td>
+<td>0</td>
+<td>0</td>
+<td>0</td>
+</tr>
+<tr class="even">
+<td>BW</td>
+<td>2</td>
+<td>1</td>
+<td>2</td>
+<td>0.5</td>
+</tr>
+<tr class="odd">
+<td>BB</td>
+<td>1</td>
+<td>2</td>
+<td>2</td>
+<td>0.5</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
 
 
 

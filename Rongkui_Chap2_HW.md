@@ -7,6 +7,8 @@ output:
     keep_md: yes
 ---
 
+### Homework
+
 2E1. Which of the expressions below correspond to the statement: *the probability of rain on Monday*?  
 (1) Pr(rain)  
 (2) Pr(rain | Monday)   
@@ -157,4 +159,60 @@ Therefore, ||{All possible outcome}|| = 6;
 > {Black side up} = {Card 2 side B (black) up; Card 3 side A (black) up; Card 3 side B (black) up; Card 4 side A (black) up; Card 4 side B (black) up}   
 > Therefore, ||{Black side up}|| = 5;    
 > Within the outcome space {Black side up}, 4 events, {Card 3 side A (black) up; Card 3 side B (black) up; Card 4 side A (black) up; Card 4 side B (black) up}, fall into set {Black side down}.   
-> Therefore, Pr(Black side down|Black side up) = 4/5.    
+> Therefore, Pr(Black side down|Black side up) = 4/5.  
+
+### Lecture Note:     
+
+#### Going over slides
+
+- instead of "probability of data if we assume model is true", Bayesian statistics ask the question of "how probable is any model (e.g. each possible % of water on surface of Earth) given our data?"     
+
+#### Going over HW q's:   
+
+2M3
+
+```r
+prior = c(0.5, 0.5)
+prob = c(0.7, 0) #the two theta's you want to test out: "is theta = 0.7 (earth) or theta = 0 (mars)?"
+likelihood = dbinom(0 , size = 1, prob=prob)
+usd_posterior = likelihood*prior
+posterior = usd_posterior/sum(usd_posterior)
+posterior
+```
+
+```
+## [1] 0.2307692 0.7692308
+```
+
+2H1:
+
+
+```r
+prior = c(0.5, 0.5)
+prob = c(0.1, 0.2)
+likelihood = dbinom(1 , size = 1, prob=prob)
+usd_posterior = likelihood*prior
+posterior = usd_posterior/sum(usd_posterior)
+posterior
+```
+
+```
+## [1] 0.3333333 0.6666667
+```
+
+```r
+sum(prob*posterior)
+```
+
+```
+## [1] 0.1666667
+```
+
+2M6
+
+| Card | Ways to pull from bag | way to pull B side up | product | prob |
+|------|-----------------------|-----------------------|---------|------|
+| WW   | 3 | 0 | 0 | 0 |
+| BW   | 2 | 1 | 2 | 0.5 |
+| BB   | 1 | 2 | 2 | 0.5 |
+
