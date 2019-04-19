@@ -186,7 +186,7 @@ prob8 = sum(w == 8)/length(w)
 
 
 ```r
-w4 = rbinom(1e4 , size= 9, prob=samples.m2)
+w4 = rbinom(1e5 , size= 9, prob=samples.m2) #does the number of samples you draw here have to be the same as the size of the sample you draw from the posterior distribution? No. 
 simplehist(w4)
 ```
 
@@ -196,4 +196,152 @@ simplehist(w4)
 prob6 = sum(w4 == 6)/length(w4)
 ```
 
-> The probability of observing 6 water in 9 tosses is 0.1695.  
+> The probability of observing 6 water in 9 tosses is 0.17499.  
+
+### Hard.
+#### Introduction. The practice problems here all use the data below. These data indicate the gender (male=1, female=0) of officially reported first and second born children in 100 two-child families.     
+
+```r
+data(homeworkch3)
+birth1
+```
+
+```
+##   [1] 1 0 0 0 1 1 0 1 0 1 0 0 1 1 0 1 1 0 0 0 1 0 0 0 1 0 0 0 0 1 1 1 0 1 0
+##  [36] 1 1 1 0 1 0 1 1 0 1 0 0 1 1 0 1 0 0 0 0 0 0 0 1 1 0 1 0 0 1 0 0 0 1 0
+##  [71] 0 1 1 1 1 0 1 0 1 1 1 1 1 0 0 1 0 1 1 0 1 0 1 1 1 0 1 1 1 1
+```
+
+```r
+birth2
+```
+
+```
+##   [1] 0 1 0 1 0 1 1 1 0 0 1 1 1 1 1 0 0 1 1 1 0 0 1 1 1 0 1 1 1 0 1 1 1 0 1
+##  [36] 0 0 1 1 1 1 0 0 1 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 0 1 1 0 1 1 0 1 1
+##  [71] 1 0 0 0 0 0 0 1 0 0 0 1 1 0 0 1 0 0 1 1 0 0 0 1 1 1 0 0 0 0
+```
+
+#### 3H1. Using grid approximation, compute the posterior distribution for the probability of a birth being a boy. Assume a uniform prior probability. Which parameter value maximizes the posterior probability?     
+
+
+```r
+likelihood.h1 <- dbinom((sum(birth1)+sum(birth2)) , size=sum(length(birth1), length(birth2)) , prob=p_grid)
+posterior.h1 <- likelihood.h1 * prior
+posterior.h1 <- posterior.h1 / sum(posterior.h1)
+ggplot(data.frame(posterior = posterior.h1, p = p_grid), aes(x = p, y = posterior)) +
+  geom_col() 
+```
+
+![](Rongkui_Chap3_HW_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+
+
+#### 3H2. Using the sample function, draw 10,000 random parameter values from the posterior distribution you calculated above. Use these samples to estimate the 50%, 89%, and 97% highest posterior density intervals.     
+
+
+```r
+sample.h2 = sample(size = 1e4, p_grid, prob = posterior.h1, replace = TRUE)
+ggplot(data.frame(sample.h2), aes(x = sample.h2)) +
+  geom_histogram(bins = 100) +
+  xlim(0,1)
+```
+
+```
+## Warning: Removed 2 rows containing missing values (geom_bar).
+```
+
+![](Rongkui_Chap3_HW_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
+
+```r
+HPDI50.h2 = HPDI(sample.h2 , prob=0.50)
+HPDI50.h2
+```
+
+```
+##      |0.5      0.5| 
+## 0.5255255 0.5725726
+```
+
+```r
+HPDI89.h2 = HPDI(sample.h2 , prob=0.89)
+HPDI89.h2
+```
+
+```
+##     |0.89     0.89| 
+## 0.5005005 0.6116116
+```
+
+```r
+HPDI97.h2 = HPDI(sample.h2 , prob=0.97)
+HPDI97.h2
+```
+
+```
+##     |0.97     0.97| 
+## 0.4794795 0.6286286
+```
+
+
+#### 3H3. Use rbinom to simulate 10,000 replicates of 200 births. You should end up with 10,000 numbers, each one a count of boys out of 200 births. Compare the distribution of predicted numbers of boys to the actual count in the data (111 boys out of 200 births). There are many good ways to visualize the simulations, but the dens command (part of the rethinking package) is probably the easiest way in this case. Does it look like the model fits the data well? That is, does the distribution of predictions include the actual observation as a central, likely outcome?      
+
+
+```r
+ppd = rbinom(1e4, size = 200, prob = sample.h2)
+dens(ppd)
+```
+
+![](Rongkui_Chap3_HW_files/figure-html/unnamed-chunk-16-1.png)<!-- -->
+
+#### 3H4. Now compare 10,000 counts of boys from 100 simulated first borns only to the number of boys in the first births, birth1. How does the model look in this light?  
+
+
+```r
+sum(birth1)
+```
+
+```
+## [1] 51
+```
+
+```r
+ppd.4 = rbinom(1e4, size = 100, prob = sample.h2)
+dens(ppd.4)
+```
+
+![](Rongkui_Chap3_HW_files/figure-html/unnamed-chunk-17-1.png)<!-- -->
+
+
+#### 3H5. The model assumes that sex of first and second births are independent. To check this assumption, focus now on second births that followed female first borns. Compare 10,000 simulated counts of boys to only those second births that followed girls. To do this correctly, you need to count the number of first borns who were girls and simulate that many births, 10,000 times. Compare the counts of boys in your simulations to the actual observed count of boys following girls. How does the model look in this light? Any guesses what is going on in these data?
+
+
+```r
+length(birth2[birth1 == 0])
+```
+
+```
+## [1] 49
+```
+
+```r
+sum(birth2[birth1 == 0])
+```
+
+```
+## [1] 39
+```
+
+```r
+ppd.5 = rbinom(1e4, size = length(birth2[birth1 == 0]), prob = sample.h2)
+dens(ppd.5)
+```
+
+![](Rongkui_Chap3_HW_files/figure-html/unnamed-chunk-18-1.png)<!-- -->
+
+```r
+hist(ppd.5)
+```
+
+![](Rongkui_Chap3_HW_files/figure-html/unnamed-chunk-18-2.png)<!-- -->
+
+
