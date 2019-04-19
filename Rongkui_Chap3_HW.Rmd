@@ -188,6 +188,15 @@ sum(birth2[birth1 == 0])
 ppd.5 = rbinom(1e4, size = length(birth2[birth1 == 0]), prob = sample.h2)
 dens(ppd.5)
 hist(ppd.5)
+HPDI(ppd.5, 0.95)
 ```
 
+How about when the first born was a boy?   
+```{r}
+length(birth2[birth1 == 1])
+sum(birth2[birth1 == 1])
+ppd.6 = rbinom(1e4, size = length(birth2[birth1 == 1]), prob = sample.h2)
+dens(ppd.6)
+HPDI(ppd.6, c(0.5, 0.8, 0.95))
+```
 
