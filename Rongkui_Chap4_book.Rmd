@@ -1,0 +1,13 @@
+---
+title: "Chapter_3_book"
+author: "Rongkui Han"
+date: "4/22/2019"
+output: html_document
+---
+
+### 4.1 Overthinking
+Standard Nornal/Gaussian distribution: N(0,1)
+```{r}
+curve(exp( -x^2 ) , from=-3 , to=3)
+```
+
