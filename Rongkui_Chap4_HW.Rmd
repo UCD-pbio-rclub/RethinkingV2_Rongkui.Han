@@ -52,13 +52,31 @@ dens(prior_y)
 ```
 
 #### 4M2. Translate the model just above into a quap formula.      
-```{r, eval = FALSE}
+```{r}
 ylist = alist(
   y ~ dnorm(mu, sigma), 
   mu ~ dnorm(0,10),
-  sigma ~ dunif(0,10)
+  sigma ~ dunif(0,15)
 )
 ```
+
+```{r}
+start = list(mu=0,sigma=5)
+y2 = data.frame(y = prior_y)
+#library(rethinking)
+quap.model = quap(ylist, data = y2, start = start)
+precis(quap.model)
+```
+
+
+```{r}
+data(Howell1)
+d <- Howell1
+d2 <- d[ d$age >= 18 , ]
+```
+
+
+
 
 #### 4M3. Translate the quap model formula below into a mathematical model definition.    
 ```{r, eval = FALSE}
@@ -71,11 +89,14 @@ sigma ~ dunif( 0 , 50 )
 )
 ```
 
-$y_i$ ~ Normal($\mu$, $\sigma$)      
-$\mu_i = \alpha + \beta x_i$   
-$\alpha$ ~ Normal(0, 50)   
-$\beta$ ~ Uniform(0, 10)      
-$\sigma$ ~ Uniform(0, 50)   
+$$
+y_i \sim Normal(\mu, \sigma) \\     
+\mu_i = \alpha + \beta x_i  \\ 
+\alpha \sim Normal(0, 50)   \\
+\beta \sim Uniform(0, 10)     \\ 
+\sigma \sim Uniform(0, 50)   
+$$
+
 
 #### 4M4. A sample of students is measured for height each year for 3 years. After the third year, you want to fit a linear regression predicting height using year as a predictor. Write down the mathematical model definition for this regression, using any variable names and priors you choose. Be prepared to defend your choice of priors.
 
