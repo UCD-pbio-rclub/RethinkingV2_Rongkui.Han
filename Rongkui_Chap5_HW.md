@@ -22,7 +22,18 @@ $$
 #### 5E3. 
 Write down a multiple regression to evaluate the claim: Neither amount of funding nor size of laboratory is by itself a good predictor of time to PhD degree; but together these variables are both positively associated with time to degree. Write down the model definition and indicate which side of zero each slope parameter should be on.
 
-> $\mu_i = \beta(x_i \times z_i)$, $\beta$ is positive.  
+
+```r
+alist(
+    D ~ dnorm(mu, sigma),
+    mu <- a + bFunding*Funding + bSize*Size,
+    a ~ dnorm(5,1),
+    bFunding ~ dnorm(0,0.5),
+    bSize ~ dnorm(0,0.5),
+    sigma ~ dexp(1)
+  ), data = dm
+```
+
 
 ### Medium   
 
@@ -57,7 +68,7 @@ coordinates(dag5m3.0) <- list( x=c(A=0,D=2,M=1) , y=c(A=1,D=1,M=0) )
 plot( dag5m3.0 )
 ```
 
-![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-1-1.png)<!-- -->
+![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
 
 
 ```r
@@ -69,7 +80,7 @@ coordinates(dag5m3.1) <- list( x=c(A=0,D=2,M=1) , y=c(A=1,D=1,M=0) )
 plot( dag5m3.1 )
 ```
 
-![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-2-1.png)<!-- -->
+![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-3-1.png)<!-- -->
 
 > To do so we need to do regressions: 
 1. M = $\beta_A$A  
@@ -252,11 +263,11 @@ precis(m.5m3)
 
 ```
 ##                mean         sd       5.5%      94.5%
-## a     -1.999063e-07 0.09231445 -0.1475365  0.1475361
-## bM     3.175340e-02 0.14805881 -0.2048732  0.2683800
-## bA    -6.890474e-01 0.14527917 -0.9212316 -0.4568632
-## bL    -3.030067e-01 0.12056156 -0.4956874 -0.1103261
-## sigma  7.358356e-01 0.07306384  0.6190655  0.8526058
+## a     -4.981782e-08 0.09231440 -0.1475363  0.1475362
+## bM     3.175293e-02 0.14805872 -0.2048735  0.2683794
+## bA    -6.890476e-01 0.14527908 -0.9212316 -0.4568636
+## bL    -3.030065e-01 0.12056149 -0.4956870 -0.1103259
+## sigma  7.358351e-01 0.07306372  0.6190652  0.8526051
 ```
  
 
@@ -311,7 +322,7 @@ for (i in 1:N) {
   }
 ```
 
-![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-7-1.png)<!-- -->
+![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-8-1.png)<!-- -->
 
 Calculate posterior:
 
@@ -350,7 +361,7 @@ shade(mu.HPDI, A_seq)
 curve( a_map + bA_map*(x - xbar) , add=TRUE )
 ```
 
-![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
 
 (2) W ~ GS:   
 Calculate posterior:
@@ -390,7 +401,7 @@ lines(GS_seq, mu2.mean)
 shade(mu2.HPDI, GS_seq)
 ```
 
-![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-11-1.png)<!-- -->
+![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-12-1.png)<!-- -->
 
 > Group size is important.  
 
@@ -440,7 +451,7 @@ shade( mu_PI_counter , GS_seq )
 shade( W_PI , GS_seq )
 ```
 
-![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-13-1.png)<!-- -->
+![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
 
 Holding group size as constant:   
 
@@ -463,6 +474,6 @@ shade( mu_PI_counter2 , A_seq )
 shade( W_PI2 , A_seq )
 ```
 
-![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-14-1.png)<!-- -->
+![](Rongkui_Chap5_HW_files/figure-html/unnamed-chunk-15-1.png)<!-- -->
 
 > Masking effect between the two variables?

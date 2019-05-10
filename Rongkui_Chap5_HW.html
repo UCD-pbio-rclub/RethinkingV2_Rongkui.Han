@@ -216,9 +216,14 @@ $(document).ready(function () {
 <div id="e3." class="section level4">
 <h4>5E3.</h4>
 <p>Write down a multiple regression to evaluate the claim: Neither amount of funding nor size of laboratory is by itself a good predictor of time to PhD degree; but together these variables are both positively associated with time to degree. Write down the model definition and indicate which side of zero each slope parameter should be on.</p>
-<blockquote>
-<p><span class="math inline">\(\mu_i = \beta(x_i \times z_i)\)</span>, <span class="math inline">\(\beta\)</span> is positive.</p>
-</blockquote>
+<pre class="r"><code>alist(
+    D ~ dnorm(mu, sigma),
+    mu &lt;- a + bFunding*Funding + bSize*Size,
+    a ~ dnorm(5,1),
+    bFunding ~ dnorm(0,0.5),
+    bSize ~ dnorm(0,0.5),
+    sigma ~ dexp(1)
+  ), data = dm</code></pre>
 </div>
 </div>
 <div id="medium" class="section level3">
@@ -371,11 +376,11 @@ head(dm)</code></pre>
 )
 precis(m.5m3)</code></pre>
 <pre><code>##                mean         sd       5.5%      94.5%
-## a     -1.999063e-07 0.09231445 -0.1475365  0.1475361
-## bM     3.175340e-02 0.14805881 -0.2048732  0.2683800
-## bA    -6.890474e-01 0.14527917 -0.9212316 -0.4568632
-## bL    -3.030067e-01 0.12056156 -0.4956874 -0.1103261
-## sigma  7.358356e-01 0.07306384  0.6190655  0.8526058</code></pre>
+## a     -4.981782e-08 0.09231440 -0.1475363  0.1475362
+## bM     3.175293e-02 0.14805872 -0.2048735  0.2683794
+## bA    -6.890476e-01 0.14527908 -0.9212316 -0.4568636
+## bL    -3.030065e-01 0.12056149 -0.4956870 -0.1103259
+## sigma  7.358351e-01 0.07306372  0.6190652  0.8526051</code></pre>
 </div>
 </div>
 <div id="hard." class="section level3">
