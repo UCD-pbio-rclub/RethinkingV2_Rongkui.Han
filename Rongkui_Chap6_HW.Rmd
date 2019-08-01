@@ -1,0 +1,94 @@
+---
+title: "RongkuiHan_Chap6"
+author: "Rongkui Han"
+date: "5/31/2019"
+output: html_document
+---
+
+```{r}
+library(rethinking)
+data(WaffleDivorce)
+head(WaffleDivorce)
+d = WaffleDivorce
+d$W = scale(d$WaffleHouses)
+d$A = scale(d$MedianAgeMarriage)
+d$M = scale(d$Marriage)
+d$D = scale(d$Divorce)
+head(d)
+waf.mod <- quap(
+alist(
+D ~ dnorm( mu , sigma ),
+mu <- a[South] + b_W*W,
+a[South] ~ dnorm( 0 , 1),
+b_W ~ dnorm( 0 , 2 ),
+sigma ~ dexp(1)
+), data=d )
+precis(waf.mod)
+
+AM.mod <- quap(
+alist(
+D ~ dnorm( mu , sigma ),
+mu <- a + b_A*A + b_M*M + b_W*W,
+a ~ dnorm( 0 , 1),
+c(b_A, b_M, b_W) ~ dnorm( 0 , 1),
+sigma ~ dexp(1)
+), data=d)
+precis(AM.mod)
+plot(precis(AM.mod))
+```
+
+Foxes
+```{r}
+data(foxes)
+head(foxes)
+f = foxes
+f$A = scale(f$area)
+f$W = scale(f$weight)
+AW.mod <- quap(
+  alist(
+    W ~ dnorm( mu , sigma ),
+    mu <- a + b_A*A,
+    a ~ dnorm( 0 , 1),
+    b_A ~ dnorm( 0 , 1),
+    sigma ~ dexp(1)
+  ), data = f)
+precis(AW.mod)
+plot(precis(AW.mod))
+```
+
+```{r}
+library(dagitty)
+dag_fox <- dagitty( "dag {
+A -> F -> W
+F -> G -> W
+}")
+adjustmentSets( dag_fox , exposure="F" , outcome="W" )
+f$Food = scale(f$avgfood)
+FW.mod <- quap(
+  alist(
+    W ~ dnorm( mu , sigma ),
+    mu <- a + b_F*Food,
+    a ~ dnorm( 0 , 1),
+    b_F ~ dnorm( 0 , 1),
+    sigma ~ dexp(1)
+  ), data = f)
+precis(FW.mod)
+plot(precis(FW.mod))
+```
+
+```{r}
+adjustmentSets( dag_fox , exposure="G" , outcome="W" )
+f$G = scale(f$group)
+GW.mod <- quap(
+  alist(
+    W ~ dnorm( mu , sigma ),
+    mu <- a + b_F*Food + b_G*G,
+    a ~ dnorm( 0 , 1),
+    c(b_F, b_G) ~ dnorm( 0 , 1),
+    sigma ~ dexp(1)
+  ), data = f)
+precis(GW.mod)
+plot(precis(GW.mod))
+```
+
+

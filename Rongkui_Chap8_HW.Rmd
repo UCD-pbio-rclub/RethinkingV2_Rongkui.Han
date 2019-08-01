@@ -1,0 +1,162 @@
+---
+title: "Rongkui_Chap8_HW"
+author: "Rongkui Han"
+date: "7/31/2019"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+### 7E1
+
+(1) Temperature, sugar, salt, 
+(2) major/race/gender
+(3) functioning engine/tires/battery
+
+
+### 7M3
+In parts of North America, ravens depend upon wolves for their food. This is because ravens
+are carnivorous but cannot usually kill or open carcasses of prey. Wolves however can and do kill
+and tear open animals, and they tolerate ravens co-feeding at their kills. This species relationship
+is generally described as a “species interaction.” Can you invent a hypothetical set of data on raven
+population size in which this relationship would manifest as a statistical interaction? Do you think
+the biological interaction could be linear? Why or why not?   
+
+> probably not linear. Probably increase and then decrease.   
+
+> raven.pop ~ a + b1 x prey.pop + b2 x wolf.pop x prey.pop
+
+```{r}
+prey.pop = rexp(1000, rate = 1)
+wolf.pop = rnorm()
+```
+
+### 7H3   
+
+Consider again the `data(rugged)` data on economic development and terrain ruggedness,
+examined in this chapter. One of the African countries in that example, Seychelles, is far outside
+the cloud of other nations, being a rare country with both relatively high GDP and high ruggedness.
+Seychelles is also unusual, in that it is a group of islands far from the coast of mainland Africa, and
+its main economic activity is tourism.   
+One might suspect that this one nation is exerting a strong influence on the conclusions. In
+this problem, I want you to drop Seychelles from the data and re-evaluate the hypothesis that the
+relationship of African economies with ruggedness is different from that on other continents.   
+
+(a) Begin by using map to fit just the interaction model:   
+
+```{r}
+library(rethinking)
+library(tidyverse)
+```
+
+```{r}
+data(rugged)
+head(rugged)
+d = rugged
+d$log_gdp <- log( d$rgdppc_2000 )
+# extract countries with GDP data
+dd <- d[ complete.cases(d$rgdppc_2000) , ]
+# rescale variables
+dd$log_gdp_std <- dd$log_gdp / mean(dd$log_gdp)
+dd$rugged_std <- dd$rugged / max(dd$rugged)
+dd$cid <- ifelse( dd$cont_africa==1 , 1 , 2 )
+m1 <- quap(
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu <- a[cid] + b[cid]*( rugged_std - 0.215 ) ,
+    a[cid] ~ dnorm( 1 , 0.1 ) ,
+    b[cid] ~ dnorm( 0 , 0.3 ) ,
+    sigma ~ dexp( 1 )
+  ) ,
+data=dd )
+
+```
+
+
+```{r}
+dd2 = dd[dd$country != 'Seychelles',]
+
+m2 <- quap(
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu <- a[cid] + b[cid]*( rugged_std - 0.215 ) ,
+    a[cid] ~ dnorm( 1 , 0.1 ) ,
+    b[cid] ~ dnorm( 0 , 0.3 ) ,
+    sigma ~ dexp( 1 )
+  ) ,
+data=dd2 )
+```
+
+
+```{r}
+precis( m1 , depth=2 )
+```
+
+```{r}
+d.A1 <- dd[ dd$cont_africa==1 , ] # Africa
+d.A0 <- dd[ dd$cont_africa==0 , ] # not Africa
+rugged_seq <- seq( from=-0.1 , to=1.1 , length.out=30 )
+# plot Africa - cid=1 8.17
+plot( d.A1$rugged_std , d.A1$log_gdp_std , pch=16 , col=rangi2 ,
+xlab="ruggedness (standardized)" , ylab="log GDP (as proportion of mean)" ,
+xlim=c(0,1) )
+mu <- link( m1 , data=data.frame( cid=1 , rugged_std=rugged_seq ) )
+mu_mean <- apply( mu , 2 , mean )
+mu_ci <- apply( mu , 2 , PI , prob=0.97 )
+lines( rugged_seq , mu_mean , lwd=2 )
+shade( mu_ci , rugged_seq , col=col.alpha(rangi2,0.3) )
+mtext("African nations")
+# plot non-Africa - cid=2
+plot( d.A0$rugged_std , d.A0$log_gdp_std , pch=1 , col="black" ,
+xlab="ruggedness (standardized)" , ylab="log GDP (as proportion of mean)" ,
+xlim=c(0,1) )
+mu <- link( m1 , data=data.frame( cid=2 , rugged_std=rugged_seq ) )
+mu_mean <- apply( mu , 2 , mean )
+mu_ci <- apply( mu , 2 , PI , prob=0.97 )
+lines( rugged_seq , mu_mean , lwd=2 )
+shade( mu_ci , rugged_seq )
+mtext("Non-African nations")
+```
+
+
+
+```{r}
+precis( m2 , depth=2 )
+```
+
+```{r}
+d2.A1 <- dd2[ dd2$cont_africa==1 , ] # Africa
+d2.A0 <- dd2[ dd2$cont_africa==0 , ] # not Africa
+#rugged_seq <- seq( from=-0.1 , to=1.1 , length.out=30 )
+# plot Africa - cid=1 8.17
+plot( d2.A1$rugged_std , d2.A1$log_gdp_std , pch=16 , col=rangi2 ,
+xlab="ruggedness (standardized)" , ylab="log GDP (as proportion of mean)" ,
+xlim=c(0,1) )
+mu <- link( m2 , data=data.frame( cid=1 , rugged_std=rugged_seq ) )
+mu_mean <- apply( mu , 2 , mean )
+mu_ci <- apply( mu , 2 , PI , prob=0.97 )
+lines( rugged_seq , mu_mean , lwd=2 )
+shade( mu_ci , rugged_seq , col=col.alpha(rangi2,0.3) )
+mtext("African nations")
+# plot non-Africa - cid=2
+plot( d2.A0$rugged_std , d2.A0$log_gdp_std , pch=1 , col="black" ,
+xlab="ruggedness (standardized)" , ylab="log GDP (as proportion of mean)" ,
+xlim=c(0,1) )
+mu <- link( m2 , data=data.frame( cid=2 , rugged_std=rugged_seq ) )
+mu_mean <- apply( mu , 2 , mean )
+mu_ci <- apply( mu , 2 , PI , prob=0.97 )
+lines( rugged_seq , mu_mean , lwd=2 )
+shade( mu_ci , rugged_seq )
+mtext("Non-African nations")
+
+```
+
+```{r}
+compare(m1, m2)
+```
+
+
+```{r}
+head(dd)
+```
+
