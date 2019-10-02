@@ -1,0 +1,341 @@
+---
+title: "Rongkui_Chap9_HW"
+author: "Rongkui Han"
+date: "10/2/2019"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r}
+library(rethinking)
+```
+
+
+## Textbook exercises
+### 9.3
+```{r, 9.3}
+# U: negative log probability
+myU4 <- function(q, a = 0, b = 1, k = 0, d = 1) {
+  muy <- q[1]
+  mux <- q[2]
+  U <- sum(dnorm(y, muy, 1, log = TRUE)) + sum(dnorm(x, mux, 1, log = TRUE)) + dnorm(muy, a, b, log = TRUE) + dnorm(mux, k, d, log = TRUE)
+  return(-U)
+}
+```
+
+```{r, 9.4}
+# gradient function
+# need vector of partial derivatives of U with respect to vector q
+myU_grad4 <- function( q , a=0 , b=1 , k=0 , d=1 ) {
+muy <- q[1]
+mux <- q[2]
+G1 <- sum( y - muy ) + (a - muy)/b^2 #dU/dmuy
+G2 <- sum( x - mux ) + (k - mux)/d^2 #dU/dmuy
+return( c( -G1 , -G2 ) ) # negative bc energy is neg-log-prob
+}#
+# test data
+set.seed(7)
+y <- rnorm(50)
+x <- rnorm(50)
+x <- as.numeric(scale(x))
+y <- as.numeric(scale(y))
+```
+
+
+```{r, 9.5}
+library(shape) # for fancy arrows
+Q <- list()
+Q$q <- c(-0.1,0.2)
+pr <- 0.3
+plot( NULL , ylab="muy" , xlab="mux" , xlim=c(-pr,pr) , ylim=c(-pr,pr) )
+step <- 0.03
+L <- 11 # 0.03/28 for U-turns --- 11 for working example
+n_samples <- 4
+path_col <- col.alpha("black",0.5)
+points( Q$q[1] , Q$q[2] , pch=4 , col="black" )
+for ( i in 1:n_samples ) {
+  Q <- HMC2( myU4 , myU_grad4 , step , L , Q$q )
+  if ( n_samples < 10 ) {
+    for ( j in 1:L ) {
+      K0 <- sum(Q$ptraj[j,]^2)/2 # kinetic energy
+      lines( Q$traj[j:(j+1),1] , Q$traj[j:(j+1),2] , col=path_col , lwd=1+2*K0 )
+    }
+    points( Q$traj[1:L+1,] , pch=16 , col="white" , cex=0.35 )
+    Arrows( Q$traj[L,1] , Q$traj[L,2] , Q$traj[L+1,1] , Q$traj[L+1,2] ,
+    arr.length=0.35 , arr.adj = 0.7 )
+    text( Q$traj[L+1,1] , Q$traj[L+1,2] , i , cex=0.8 , pos=4 , offset=0.4 )
+  }
+  points( Q$traj[L+1,1] , Q$traj[L+1,2] , pch=ifelse( Q$accept==1 , 16 , 1 ) ,
+  col=ifelse( abs(Q$dH)>0.1 , "red" , "black" ) )
+}
+```
+
+```{r, 9.6, eval = FALSE}
+HMC2 <- function (U, grad_U, epsilon, L, current_q) { 
+  q = current_q
+  p = rnorm(length(q),0,1) # random flick - p is momentum.
+  current_p = p
+  # Make a half step for momentum at the beginning
+  p = p - epsilon * grad_U(q) / 2
+  # initialize bookkeeping - saves trajectory
+  qtraj <- matrix(NA,nrow=L+1,ncol=length(q))
+  ptraj <- qtraj
+  qtraj[1,] <- current_q
+  ptraj[1,] <- p
+  # Alternate full steps for position and momentum 9.7
+  for ( i in 1:L ) {
+    q = q + epsilon * p # Full step for the position
+    # Make a full step for the momentum, except at end of trajectory
+    if ( i!=L ) {
+      p = p - epsilon * grad_U(q)
+      ptraj[i+1,] <- p
+    }
+  qtraj[i+1,] <- q
+  }
+  # Make a half step for momentum at the end
+  p = p - epsilon * grad_U(q) / 2
+  ptraj[L+1,] <- p
+  # Negate momentum at end of trajectory to make the proposal symmetric
+  p = -p
+  # Evaluate potential and kinetic energies at start and end of trajectory
+  current_U = U(current_q)
+  current_K = sum(current_p^2) / 2
+  proposed_U = U(q)
+  proposed_K = sum(p^2) / 2
+  # Accept or reject the state at end of trajectory, returning either
+  # the position at the end of the trajectory or the initial position
+  accept <- 0
+  if (runif(1) < exp(current_U-proposed_U+current_K-proposed_K)) {
+    new_q <- q # accept
+    accept <- 1
+  } else new_q <- current_q # reject
+  return(list( q=new_q, traj=qtraj, ptraj=ptraj, accept=accept ))
+}
+```
+
+### 9.4   
+```{r, 9.9}
+data(rugged)
+d <- rugged
+d$log_gdp <- log(d$rgdppc_2000)
+dd <- d[ complete.cases(d$rgdppc_2000) , ]
+dd$log_gdp_std <- dd$log_gdp / mean(dd$log_gdp)
+dd$rugged_std <- dd$rugged / max(dd$rugged)
+dd$cid <- ifelse( dd$cont_africa==1 , 1 , 2 )
+head(dd)
+```
+
+```{r, 9.10}
+m8.5 <- quap(
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu <- a[cid] + b[cid]*( rugged_std - 0.215 ) ,
+    a[cid] ~ dnorm( 1 , 0.1 ) ,
+    b[cid] ~ dnorm( 0 , 0.3 ) ,
+    sigma ~ dexp( 1 )
+  ) ,
+  data=dd )
+precis( m8.5 , depth=2 )
+```
+
+```{r, 9.11}
+dat_slim <- list(
+  log_gdp_std = dd$log_gdp_std,
+  rugged_std = dd$rugged_std,
+  cid = as.integer( dd$cid )
+)
+str(dat_slim)
+```
+
+```{r, 9.12}
+m9.1 <- ulam(
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu <- a[cid] + b[cid]*( rugged_std - 0.215 ) ,
+    a[cid] ~ dnorm( 1 , 0.1 ) ,
+    b[cid] ~ dnorm( 0 , 0.3 ) ,
+    sigma ~ dexp( 1 )
+) ,
+  data=dat_slim , chains=1 )
+```
+
+```{r, 9.13}
+precis( m9.1 , depth=2 )
+```
+
+```{r, 9.14}
+m9.1 <- ulam( 
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu <- a[cid] + b[cid]*( rugged_std - 0.215 ) ,
+    a[cid] ~ dnorm( 1 , 0.1 ) ,
+    b[cid] ~ dnorm( 0 , 0.3 ) ,
+    sigma ~ dexp( 1 )
+  ) ,
+  data=dat_slim , chains=4 , cores=4 , iter=1000 )
+show(m9.1)
+```
+
+```{r}
+precis(m9.1, 2)
+```
+
+```{r}
+pairs(m9.1)
+```
+
+```{r}
+traceplot(m9.1, n_cols = 2)
+trankplot(m9.1, n_cols = 2)
+```
+
+## Homework
+### 8E3
+> Discrete parameters. Discrete parameters don't form a surface the ball can glide one.   
+
+### 8M1
+
+Re-estimate the terrain ruggedness model from the chapter, but now using a uniform prior and
+an exponential prior for the standard deviation, sigma. The uniform prior should be dunif(0,10)
+and the exponential should be dexp(1). Do the different priors have any detectible influence on the
+posterior distribution?    
+```{r}
+m8m1 <- ulam( 
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu ~ dunif( 0,10) ,
+    sigma ~ dexp( 1 )
+  ) ,
+  data=dat_slim , chains=4 , cores=4 , iter=1000 )
+```
+
+
+```{r}
+precis(m8m1)
+```
+
+### 8M2   
+The Cauchy and exponential priors from the terrain ruggedness model are very weak. They can be made more informative by reducing their scale. Compare the dcauchy and dexp priors for progressively smaller values of the scaling parameter. As these priors become stronger, how does each influence the posterior distribution?   
+
+```{r}
+m8m2.1 <- ulam( 
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu ~ dcauchy(0 , scale = 1) ,
+    sigma ~ dexp( 1 )
+  ) ,
+  data=dat_slim , chains=4 , cores=4 , iter=1000 )
+
+m8m2.2 <- ulam( 
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu ~ dcauchy(0 , scale = 0.75) ,
+    sigma ~ dexp( 0.75 )
+  ) ,
+  data=dat_slim , chains=4 , cores=4 , iter=1000 )
+
+m8m2.3 <- ulam( 
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu ~ dcauchy(0 , scale = 0.5) ,
+    sigma ~ dexp( 0.5 )
+  ) ,
+  data=dat_slim , chains=4 , cores=4 , iter=1000 )
+```
+
+```{r}
+precis(m8m2.1)
+precis(m8m2.2)
+precis(m8m2.3)
+```
+
+### 8H1    
+```{r}
+mp <- ulam( 
+  alist(
+    a ~ dnorm(0,1),
+    b ~ dcauchy(0,1)
+  ),
+  data=list(y=1),
+  start=list(a=0,b=0),
+  iter=1e4, warmup=100 )
+
+precis(mp)
+pairs(mp)
+traceplot(mp)
+```
+
+> The model is sampling from the prior distributions of a and b.   
+> A cauchy distribution has heavier tails than a normal distribution with the same mode, hence the extreme sample values.   
+
+### 8H2    
+```{r}
+data(WaffleDivorce)
+d <- WaffleDivorce
+# standardize variables
+d$A <- scale( d$MedianAgeMarriage )
+d$D <- scale( d$Divorce )
+d$M <- scale( d$Marriage ) 
+
+m5.1 <- map2stan(
+  alist(
+    D ~ dnorm( mu , sigma ) ,
+    mu <- a + bA * A ,
+    a ~ dnorm( 0 , 0.2 ) ,
+    bA ~ dnorm( 0 , 0.5 ) ,
+    sigma ~ dexp( 1 )
+  ) , data = d )
+
+
+m5.2 <- map2stan(
+  alist(
+    D ~ dnorm( mu , sigma ) ,
+    mu <- a + bM * M ,
+    a ~ dnorm( 0 , 0.2 ) ,
+    bM ~ dnorm( 0 , 0.5 ) ,
+  sigma ~ dexp( 1 )
+  ) , data = d )
+
+m5.3 <- map2stan(
+  alist(
+    D ~ dnorm( mu , sigma ) ,
+    mu <- a + bM*M + bA*A ,
+    a ~ dnorm( 0 , 0.2 ) ,
+    bM ~ dnorm( 0 , 0.5 ) ,
+    bA ~ dnorm( 0 , 0.5 ) ,
+    sigma ~ dexp( 1 )
+  ) , data = d )
+
+plot( coeftab(m5.1,m5.2,m5.3), par=c("bA","bM") )
+compare(m5.1,m5.2,m5.3)
+```
+
+> Model 5.1 is better. Smaller WAIC, higher model weight.   
+
+### Optional: 8H6   
+```{r}
+num_tosses <- 1e5
+positions <- rep(0,num_tosses)
+set.seed(1)
+current <- sample(c('W','L'), 1)
+for ( i in 1:num_tosses) {
+  # record current position
+  positions[i] <- current
+  # flip coin to generate proposal
+  proposal <- sample(c('W','L'), 1)
+  # now make sure he loops around the archipelago
+  if ( proposal == 'W' ) prob_move <- 0.7
+  if ( proposal == 'L' ) prob_move <- 0.3
+  # move?
+  current <- ifelse( runif(1) < prob_move , proposal , current )
+}
+positions
+library(ggplot2)
+pos = as.data.frame(positions)
+ggplot(pos, aes(x = positions, fill = positions)) +
+  geom_bar()
+```
+
+
+
