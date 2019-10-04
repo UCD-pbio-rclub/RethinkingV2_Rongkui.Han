@@ -225,7 +225,7 @@ m8m2.1 <- ulam(
     mu ~ dcauchy(0 , scale = 1) ,
     sigma ~ dexp( 1 )
   ) ,
-  data=dat_slim , chains=4 , cores=4 , iter=1000 )
+  data=dat_slim , chains=4 , cores=4 , iter=1000 , log_lik = TRUE )
 
 m8m2.2 <- ulam( 
   alist(
@@ -233,7 +233,7 @@ m8m2.2 <- ulam(
     mu ~ dcauchy(0 , scale = 0.75) ,
     sigma ~ dexp( 0.75 )
   ) ,
-  data=dat_slim , chains=4 , cores=4 , iter=1000 )
+  data=dat_slim , chains=4 , cores=4 , iter=1000 , log_lik = TRUE )
 
 m8m2.3 <- ulam( 
   alist(
@@ -241,13 +241,17 @@ m8m2.3 <- ulam(
     mu ~ dcauchy(0 , scale = 0.5) ,
     sigma ~ dexp( 0.5 )
   ) ,
-  data=dat_slim , chains=4 , cores=4 , iter=1000 )
+  data=dat_slim , chains=4 , cores=4 , iter=1000 , log_lik = TRUE )
 ```
 
 ```{r}
 precis(m8m2.1)
 precis(m8m2.2)
 precis(m8m2.3)
+WAIC(m8m2.1)
+WAIC(m8m2.2)
+WAIC(m8m2.3)
+compare(m8m2.1, m8m2.2, m8m2.3)
 ```
 
 ### 8H1    
@@ -330,7 +334,7 @@ for ( i in 1:num_tosses) {
   # move?
   current <- ifelse( runif(1) < prob_move , proposal , current )
 }
-positions
+#positions
 library(ggplot2)
 pos = as.data.frame(positions)
 ggplot(pos, aes(x = positions, fill = positions)) +
