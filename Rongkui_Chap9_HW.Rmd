@@ -215,14 +215,28 @@ m8m1 <- ulam(
 precis(m8m1)
 ```
 
+```{r}
+m8m1.2 <- ulam( 
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu ~ dnorm(1,0.1) ,
+    sigma ~ dunif(0, 10)
+  ) ,
+  data=dat_slim , chains=4 , cores=4 , iter=1000 )
+precis(m8m1.2)
+pairs(m8m1.2)
+```
+
+
 ### 8M2   
 The Cauchy and exponential priors from the terrain ruggedness model are very weak. They can be made more informative by reducing their scale. Compare the dcauchy and dexp priors for progressively smaller values of the scaling parameter. As these priors become stronger, how does each influence the posterior distribution?   
 
+#### Exponential:
 ```{r}
 m8m2.1 <- ulam( 
   alist(
     log_gdp_std ~ dnorm( mu , sigma ) ,
-    mu ~ dcauchy(0 , scale = 1) ,
+    mu ~ dnorm(1 , 0.1) ,
     sigma ~ dexp( 1 )
   ) ,
   data=dat_slim , chains=4 , cores=4 , iter=1000 , log_lik = TRUE )
@@ -230,16 +244,54 @@ m8m2.1 <- ulam(
 m8m2.2 <- ulam( 
   alist(
     log_gdp_std ~ dnorm( mu , sigma ) ,
-    mu ~ dcauchy(0 , scale = 0.75) ,
-    sigma ~ dexp( 0.75 )
+    mu ~ dnorm(1 , 0.1) ,
+    sigma ~ dexp( 10 )
   ) ,
   data=dat_slim , chains=4 , cores=4 , iter=1000 , log_lik = TRUE )
 
 m8m2.3 <- ulam( 
   alist(
     log_gdp_std ~ dnorm( mu , sigma ) ,
-    mu ~ dcauchy(0 , scale = 0.5) ,
-    sigma ~ dexp( 0.5 )
+    mu ~ dnorm(1 , 0.1) ,
+    sigma ~ dexp( 100 )
+  ) ,
+  data=dat_slim , chains=4 , cores=4 , iter=1000 , log_lik = TRUE )
+```
+
+```{r}
+precis(m8m2.1)
+precis(m8m2.2)
+precis(m8m2.3)
+#WAIC(m8m2.1)
+#WAIC(m8m2.2)
+#WAIC(m8m2.3)
+compare(m8m2.1, m8m2.2, m8m2.3)
+```
+
+#### Cauchy:
+
+```{r}
+m8m2.1 <- ulam( 
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu ~ dnorm(1, 0.1) ,
+    sigma ~ dcauchy(0, 1)
+  ) ,
+  data=dat_slim , chains=4 , cores=4 , iter=1000 , log_lik = TRUE )
+
+m8m2.2 <- ulam( 
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu ~ dnorm(1, 0.1)  ,
+    sigma ~ dcauchy(0, 0.1)
+  ) ,
+  data=dat_slim , chains=4 , cores=4 , iter=1000 , log_lik = TRUE )
+
+m8m2.3 <- ulam( 
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu ~ dnorm(1, 0.1)  ,
+    sigma ~ dcauchy(0, 0.01)
   ) ,
   data=dat_slim , chains=4 , cores=4 , iter=1000 , log_lik = TRUE )
 ```
@@ -322,23 +374,24 @@ compare(m5.1,m5.2,m5.3)
 num_tosses <- 1e5
 positions <- rep(0,num_tosses)
 set.seed(1)
-current <- sample(c('W','L'), 1)
+current <- 0.5
 for ( i in 1:num_tosses) {
   # record current position
   positions[i] <- current
+  current_likelihood = dbinom(6, 9, current)
   # flip coin to generate proposal
-  proposal <- sample(c('W','L'), 1)
+  proposal <- runif(1, 0, 1)
   # now make sure he loops around the archipelago
-  if ( proposal == 'W' ) prob_move <- 0.7
-  if ( proposal == 'L' ) prob_move <- 0.3
+  proposal_likelihood = dbinom(6, 9, proposal)
+  likelihood_ratio = proposal_likelihood/current_likelihood
   # move?
-  current <- ifelse( runif(1) < prob_move , proposal , current )
+  current <- ifelse( runif(1) < likelihood_ratio , proposal , current )
 }
-#positions
+positions
 library(ggplot2)
 pos = as.data.frame(positions)
-ggplot(pos, aes(x = positions, fill = positions)) +
-  geom_bar()
+ggplot(pos, aes(x = positions)) +
+  geom_histogram(bins = 100)
 ```
 
 
