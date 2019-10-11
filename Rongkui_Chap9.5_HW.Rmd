@@ -1,0 +1,139 @@
+---
+title: "Rongkui_chap9.5_HW"
+author: "Rongkui Han"
+date: "10/10/2019"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+### 8E4   
+Explain the difference between the effective number of samples, n_eff as calculated by Stan, and the actual number of samples.    
+
+> n_eff is usually smaller than the actual number of samples. It reduces the number of samples based on the level of autocorrelation betweeen consecutive samples.  
+
+### 8M3    
+Re-estimate one of the Stan models from the chapter, but at different numbers of warmup iterations.
+Be sure to use the same number of sampling iterations in each case. Compare the n_eff
+values. How much warmup is enough?    
+
+```{r}
+library(rethinking)
+data(rugged)
+d <- rugged
+d$log_gdp <- log(d$rgdppc_2000)
+dd <- d[ complete.cases(d$rgdppc_2000) , ]
+dd$log_gdp_std <- dd$log_gdp / mean(dd$log_gdp)
+dd$rugged_std <- dd$rugged / max(dd$rugged)
+dd$cid <- ifelse( dd$cont_africa==1 , 1 , 2 )
+
+dat_slim <- list(
+  log_gdp_std = dd$log_gdp_std,
+  rugged_std = dd$rugged_std,
+  cid = as.integer( dd$cid )
+)
+
+m8m3.1 <- rethinking::ulam(
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu <- a[cid] + b[cid]*( rugged_std - 0.215 ) ,
+    a[cid] ~ dnorm( 1 , 0.1 ) ,
+    b[cid] ~ dnorm( 0 , 0.3 ) ,
+    sigma ~ dexp( 1 )
+  ), data=dat_slim, chains=1, iter = 10000, warmup=1000)
+show( m8m3.1 )
+precis(m8m3.1)
+pairs(m8m3.1)
+```
+
+```{r}
+m8m3.2 <- rethinking::ulam(
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu <- a[cid] + b[cid]*( rugged_std - 0.215 ) ,
+    a[cid] ~ dnorm( 1 , 0.1 ) ,
+    b[cid] ~ dnorm( 0 , 0.3 ) ,
+    sigma ~ dexp( 1 )
+  ), data=dat_slim, chains=1, iter = 10000, warmup=2000)
+show( m8m3.2 )
+precis(m8m3.2)
+pairs(m8m3.2)
+```
+
+```{r}
+m8m3.3 <- rethinking::ulam(
+  alist(
+    log_gdp_std ~ dnorm( mu , sigma ) ,
+    mu <- a[cid] + b[cid]*( rugged_std - 0.215 ) ,
+    a[cid] ~ dnorm( 1 , 0.1 ) ,
+    b[cid] ~ dnorm( 0 , 0.3 ) ,
+    sigma ~ dexp( 1 )
+  ), data=dat_slim, chains=1, iter = 10000, warmup=5000)
+show( m8m3.3 )
+precis(m8m3.3)
+pairs(m8m3.3)
+```
+
+### 8H3    
+Sometimes changing a prior for one parameter has unanticipated effects on other parameters.
+This is because when a parameter is highly correlated with another parameter in the posterior, the prior influences both parameters. Here’s an example to work and think through.   
+Go back to the leg length example in Chapter 5. Here is the code again, which simulates height and leg lengths for 100 imagined individuals:   
+
+```{r}
+N <- 100 # number of individuals
+height <- rnorm(N,10,2) # sim total height of each
+leg_prop <- runif(N,0.4,0.5) # leg as proportion of height
+leg_left <- leg_prop*height + # sim left leg as proportion + error
+rnorm( N , 0 , 0.02 )
+leg_right <- leg_prop*height + # sim right leg as proportion + error
+rnorm( N , 0 , 0.02 )
+# combine into data frame
+d <- data.frame(height,leg_left,leg_right)
+```
+
+And below is the model you fit before, resulting in a highly correlated posterior for the two beta parameters. This time, fit the model using map2stan:   
+```{r}
+m5.8s <- map2stan( 
+  alist(
+    height ~ dnorm( mu , sigma ) ,
+    mu <- a + bl*leg_left + br*leg_right ,
+    a ~ dnorm( 10 , 100 ) ,
+    bl ~ dnorm( 2 , 10 ) ,
+    br ~ dnorm( 2 , 10 ) ,
+    sigma ~ dcauchy( 0 , 1 )
+  ) ,
+  data=d, chains=4, start=list(a=10,bl=0,br=0,sigma=1) )
+pairs(m5.8s)
+```
+
+Compare the posterior distribution produced by the code above to the posterior distribution produced when you change the prior for br so that it is strictly positive:   
+```{r}
+m5.8s2 <- map2stan(
+alist(
+height ~ dnorm( mu , sigma ) ,
+mu <- a + bl*leg_left + br*leg_right ,
+a ~ dnorm( 10 , 100 ) ,
+bl ~ dnorm( 2 , 10 ) ,
+br ~ dnorm( 2 , 10 ) & T[0,] ,
+sigma ~ dcauchy( 0 , 1 )
+) ,
+data=d, chains=4,
+start=list(a=10,bl=0,br=0,sigma=1) )
+pairs(m5.8s2)
+```
+
+Note that T[0,] on the right-hand side of the prior for br. What the T[0,] does is truncate the normal distribution so that it has positive probability only above zero. In other words, that prior ensures that the posterior distribution for br will have no probability mass below zero.     
+Compare the two posterior distributions for m5.8s and m5.8s2. What has changed in the posterior distribution of both beta parameters? Can you explain the change induced by the change in prior?     
+
+> In the second run, the posteriod distributions for bl and br become non-symmetric but mirror image of each other. This is caused by the new prior for br. The new prior made the posterior of br right skewed. Due to the strong negative correlation between br and bl, the posterior of bl is now left skewed.  
+
+### 8H4   
+
+For the two models fit in the previous problem, use DIC or WAIC to compare the effective
+numbers of parameters for each model. Which model has more effective parameters? Why?   
+```{r}
+compare(m5.8s, m5.8s2, WAIC = TRUE)
+compare(m5.8s, m5.8s2, WAIC = FALSE) #didn't seem to have worked. 
+```
+
+> pWAIC tells us number of effective parameters. The first model has more effective parameters (effective parameter: panelty term in WAIC). This means that the first model has a higher penalty term.    
