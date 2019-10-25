@@ -1,0 +1,97 @@
+---
+title: "Rongkui_Chap10.1_HW"
+author: "Rongkui Han"
+date: "10/18/2019"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+### Question 1   
+```{r}
+library(rethinking)
+data("Wines2012")
+dim(Wines2012)
+head(Wines2012)
+```
+
+```{r}
+wines_slim = list(
+  judge = match(Wines2012$judge, unique(Wines2012$judge)),
+  wine = match(Wines2012$wine, unique(Wines2012$wine)),
+  score_std = scale(Wines2012$score)
+)
+  
+m1 <- ulam(
+  alist(
+    score_std ~ dnorm( mu , sigma ) ,
+    mu <- a + j[judge] + w[wine],
+    a ~ dnorm(0,1),
+    j[judge] ~ dnorm( 0 , 1 ) ,
+    w[wine] ~ dnorm( 0, 1 ),
+    sigma ~ dexp(1)),
+  data=wines_slim, chains=4, core = 4, iter = 2000)
+#traceplot(m1)
+precis(m1, depth = 2)
+```
+
+> Judges 1 (`r unique(Wines2012$judge)[1]`) and 5 (`r unique(Wines2012$judge)[5]`) tend to give low scores; judges 3 (`r unique(Wines2012$judge)[3]`) and 6 (`r unique(Wines2012$judge)[6]`) tend to give high scores. 
+
+```{r}
+library(ggplot2)
+ggplot(Wines2012, aes(x = judge, y = score, fill = wine)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 45))
+```
+
+> Wine 13 (`r unique(Wines2012$wine)[13]`) and 19 (`r unique(Wines2012$wine)[19]`) seem to be the worst. Wine 12 (`r unique(Wines2012$wine)[12]`) and 20 (`r unique(Wines2012$wine)[20]`) seem to be the best.    
+
+```{r}
+ggplot(Wines2012, aes(x = wine, y = score, fill = judge)) +
+  geom_col() +
+  theme(axis.text.x = element_text(angle = 45))
+```
+
+### Question 2:   
+
+```{r}
+wines_slim2 = list(
+  flight = match(Wines2012$flight, unique(Wines2012$flight)),
+  wine_amer = match(Wines2012$wine.amer, unique(Wines2012$wine.amer)),
+  judge_amer = match(Wines2012$judge.amer, unique(Wines2012$judge.amer)),
+  score_std = scale(Wines2012$score)
+)
+  
+m2 <- ulam(
+  alist(
+    score_std ~ dnorm( mu , sigma ) ,
+    mu <- a + f[flight] + j[judge_amer] + w[wine_amer],
+    a ~ dnorm(0,1),
+    f[flight] ~ dnorm( 0 , 1 ),
+    j[judge_amer] ~ dnorm( 0 , 1 ),
+    w[wine_amer] ~ dnorm( 0, 1 ),
+    sigma ~ dexp(1)),
+  data=wines_slim2, chains=4, core = 4, iter = 2000)
+traceplot(m2)
+precis(m2, depth = 2)
+```
+
+> Nothing really jumps out.   
+
+### Question 3: I am really confused.    
+```{r, eval = FALSE}
+m3 <- ulam(
+  alist(
+    score_std ~ dnorm( mu , sigma ) ,
+    mu <- a + fj[flight*judge_amer] + jw[judge_amer*wine_amer] + fw[flight*wine_amer],
+    a ~ dnorm(0,1),
+    fj[flight*judge_amer] ~ dnorm( 0 , 1 ),
+    jw[judge_amer*wine_amer] ~ dnorm( 0 , 1 ),
+    fw[flight*wine_amer] ~ dnorm( 0, 1 ),
+    sigma ~ dexp(1)),
+  data=wines_slim2, chains=4, core = 4, iter = 4000)
+traceplot(m3)
+precis(m3, depth = 3)
+link(m3, )
+```
+
