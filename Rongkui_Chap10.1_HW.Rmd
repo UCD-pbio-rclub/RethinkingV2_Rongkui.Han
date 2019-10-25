@@ -33,6 +33,7 @@ m1 <- ulam(
   data=wines_slim, chains=4, core = 4, iter = 2000)
 #traceplot(m1)
 precis(m1, depth = 2)
+plot(m1, depth = 2)
 ```
 
 > Judges 1 (`r unique(Wines2012$judge)[1]`) and 5 (`r unique(Wines2012$judge)[5]`) tend to give low scores; judges 3 (`r unique(Wines2012$judge)[3]`) and 6 (`r unique(Wines2012$judge)[6]`) tend to give high scores. 
@@ -74,6 +75,7 @@ m2 <- ulam(
   data=wines_slim2, chains=4, core = 4, iter = 2000)
 traceplot(m2)
 precis(m2, depth = 2)
+plot(m2, depth = 2)
 ```
 
 > Nothing really jumps out.   
