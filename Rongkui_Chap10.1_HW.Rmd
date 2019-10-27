@@ -76,24 +76,32 @@ m2 <- ulam(
 traceplot(m2)
 precis(m2, depth = 2)
 plot(m2, depth = 2)
+pairs(m2)
 ```
 
 > Nothing really jumps out.   
 
 ### Question 3: I am really confused.    
 ```{r, eval = FALSE}
+wines_slim3 = list(
+  flight = wines_slim2[['flight']]-1,
+  wine_amer = wines_slim2[['wine_amer']]-1,
+  judge_amer = wines_slim2[['judge_amer']]-1,
+  score_std = scale(Wines2012$score)
+)
+
 m3 <- ulam(
   alist(
     score_std ~ dnorm( mu , sigma ) ,
-    mu <- a + fj[flight*judge_amer] + jw[judge_amer*wine_amer] + fw[flight*wine_amer],
+    mu <- a + fj*flight*judge_amer + jw*judge_amer*wine_amer + fw*flight*wine_amer,
     a ~ dnorm(0,1),
-    fj[flight*judge_amer] ~ dnorm( 0 , 1 ),
-    jw[judge_amer*wine_amer] ~ dnorm( 0 , 1 ),
-    fw[flight*wine_amer] ~ dnorm( 0, 1 ),
+    fj ~ dnorm( 0 , 1 ),
+    jw ~ dnorm( 0 , 1 ),
+    fw ~ dnorm( 0, 1 ),
     sigma ~ dexp(1)),
-  data=wines_slim2, chains=4, core = 4, iter = 4000)
+  data=wines_slim3, chains=4, core = 4, iter = 4000)
 traceplot(m3)
-precis(m3, depth = 3)
-link(m3, )
+precis(m3, depth = 2)
+plot(m3, depth = 2)
 ```
 
