@@ -1,0 +1,93 @@
+---
+title: "Rongkui_Chap11.1_HW"
+author: "Rongkui Han"
+date: "10/31/2019"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r}
+library(rethinking)
+```
+
+
+### 10E1.    
+If an event has probability 0.35, what are the log-odds of this event?    
+
+```{r}
+log_odds = logit(0.35)
+```
+
+> The log-odds of this event is `r log_odds`.   
+
+### 10E2.    
+If an event has log-odds 3.2, what is the probability of this event?     
+```{r}
+prob = inv_logit(3.2)
+```
+
+> The probability is `r prob`.    
+
+### 10E3.     
+Suppose that a coefficient in a logistic regression has value 1.7. What does this imply about the proportional change in odds of the outcome?    
+```{r}
+odds_increase = exp(1.7)
+```
+
+> $log(odds_1) - log(odds_2) = 1.7$   
+> $log(\frac{odds_1}{odds_2}) = 1.7$   
+> $\frac{odds_1}{odds_2} = e^{1.7}$    
+> The odds of the outcome increase by `r odds_increase`.     
+
+### 10M1.    
+As explained in the chapter, binomial data can be organized in aggregated and disaggregated forms, without any impact on inference. But the likelihood of the data does change when the data are converted between the two formats. Can you explain why?
+
+> When we de-aggregate the outcomes, the order of events matters, maybe? Like the likelihoods of all different permutations sum up to the likelihood of the aggregated event?   
+
+### Additional question 1   
+```{r}
+data("NWOGrants")
+head(NWOGrants)
+d = NWOGrants
+d$gid <- ifelse( d$gender=="m" , 1 , 2 )
+head(d)
+
+d_slim = list(
+  gid = d$gid,
+  applications = d$applications,
+  awards = d$awards
+)
+
+m1.1 <- ulam(
+  alist(
+  awards ~ dbinom( applications , p ) ,
+  logit(p) <- a[gid] ,
+  a[gid] ~ dnorm( 0 , 1.5 )
+) , data=d_slim, chains=4, core = 4, iter = 2000)
+
+precis( m1.1 , depth=2 )
+plot(m1.1, depth = 2)
+```
+
+```{r}
+d_slim = list(
+  discipline = rep( 1:9 , each=2 ),
+  gid = d$gid,
+  applications = d$applications,
+  awards = d$awards
+)
+
+m1.2 <- ulam(
+  alist(
+  awards ~ dbinom( applications , p ) ,
+  logit(p) <- a[gid] + delta[discipline] ,
+  a[gid] ~ dnorm( 0 , 1.5 ),
+  delta[discipline] ~ dnorm( 0 , 1.5 )
+) , data=d_slim, chains=4, core = 4, iter = 4000)
+
+precis( m1.2 , depth=2 )
+plot(m1.2, depth = 2)
+```
+
+
