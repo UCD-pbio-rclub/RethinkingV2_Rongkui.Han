@@ -85,9 +85,49 @@ m1.2 <- ulam(
   a[gid] ~ dnorm( 0 , 1.5 ),
   delta[discipline] ~ dnorm( 0 , 1.5 )
 ) , data=d_slim, chains=4, core = 4, iter = 4000)
-
+traceplot(m1.2)
 precis( m1.2 , depth=2 )
 plot(m1.2, depth = 2)
 ```
+
+> If you do pairs(m1.2), all parameters are strongly correlated. Try (0, 1) indexing instead of (1,2) indexing.    
+
+```{r}
+d_slim2 = list(
+  discipline = rep( 1:9 , each=2 ),
+  gid = d$gid-1,
+  applications = d$applications,
+  awards = d$awards
+)
+
+m1.3 <- ulam(
+  alist(
+  awards ~ dbinom( applications , p ) ,
+  logit(p) <- g*gid + delta[discipline] ,
+  g ~ dnorm(0, 1.5),
+  delta[discipline] ~ dnorm( 0 , 1.5 )
+) , data=d_slim2, chains=4, core = 4, iter = 4000)
+traceplot(m1.3)
+precis( m1.3 , depth=2 )
+plot(m1.3, depth = 2)
+```
+
+Interaction model:   
+```{r}
+m1.4 <- ulam(
+  alist(
+  awards ~ dbinom( applications , p ) ,
+  logit(p) <- g*gid + delta[discipline] + inter[discipline]*gid,
+  g ~ dnorm(0, 1.5),
+  delta[discipline] ~ dnorm( 0 , 1.5 ),
+  inter[discipline] ~ dnorm(0, 1.5)
+) , data=d_slim2, chains=4, core = 4, iter = 4000)
+traceplot(m1.4)
+precis( m1.4 , depth=2 )
+plot(m1.4, depth = 2)
+```
+
+### Additional question 2
+
 
 
