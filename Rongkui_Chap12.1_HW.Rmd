@@ -1,0 +1,229 @@
+---
+title: "Rongkui_Chap12_HW"
+author: "Rongkui Han"
+date: "11/22/2019"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+10H3
+```{r}
+library(rethinking)
+library(MASS)
+data("eagles")
+head(eagles)
+
+d = list(
+  y = eagles$y,
+  n = eagles$n,
+  pr = ifelse(eagles$P == 'L', 1, 2),
+  v = ifelse(eagles$V == 'L', 1, 2),
+  a = ifelse(eagles$A == 'A', 1, 2)
+)
+
+m10.3 <- map2stan(
+  alist(
+  y ~ dbinom( n , p ),
+  logit(p) <- alpha + b_pr[pr] + b_v[v] + b_a[a],
+  alpha ~ dnorm(0, 10),
+  b_pr[pr] ~ dnorm(0, 5),
+  b_v[v] ~ dnorm(0, 5),
+  b_a[a] ~ dnorm(0, 5)
+) , data=d, chains=4, core = 4, iter = 4000)
+plot(m10.3)
+precis(m10.3 , depth=2)
+```
+
+```{r}
+m10.3.1 <- map(
+  alist(
+  y ~ dbinom( n , p ),
+  logit(p) <- alpha + b_pr[pr] + b_v[v] + b_a[a],
+  alpha ~ dnorm(0, 10),
+  b_pr[pr] ~ dnorm(0, 5),
+  b_v[v] ~ dnorm(0, 5),
+  b_a[a] ~ dnorm(0, 5)
+) , data=d)
+precis(m10.3.1 , depth=2 )
+```
+
+(b) Now interpret the estimates. If the quadratic approximation turned out okay, then it’s okay to
+use the map estimates. Otherwise stick to map2stan estimates. Then plot the posterior predictions.
+Compute and display both (1) the predicted probability of success and its 89% interval for each row (i)
+in the data, as well as (2) the predicted success count and its 89% interval. What different information
+does each type of posterior prediction provide?     
+```{r}
+d_ind = list(
+  n = eagles$n,
+  pr = ifelse(eagles$P == 'L', 1, 2),
+  v = ifelse(eagles$V == 'L', 1, 2),
+  a = ifelse(eagles$A == 'A', 1, 2)
+)
+post_pred = extract.samples(m10.3)
+p = list()
+par(mfrow = c(2,4))
+for (i in 1:8) {
+  p[[i]] = inv_logit(post_pred$alpha + post_pred$b_pr[,d_ind$pr[i]] + post_pred$b_v[,d_ind$v[i]] + post_pred$b_a[,d_ind$a[i]])
+  hist(p[[i]])
+}
+
+y = list()
+par(mfrow = c(2,4))
+for (i in 1:8) {
+  y[[i]] = rbinom(d_ind$n[i], prob = inv_logit(post_pred$alpha + post_pred$b_pr[,d_ind$pr[i]] + post_pred$b_v[,d_ind$v[i]] + post_pred$b_a[,d_ind$a[i]]), size = 10000)
+  hist(y[[i]])
+}
+```
+
+```{r}
+post_pred2 = extract.samples(m10.3.1)
+p2 = list()
+par(mfrow = c(2,4))
+for (i in 1:8) {
+  p2[[i]] = inv_logit(post_pred2$alpha + post_pred2$b_pr[,d_ind$pr[i]] + post_pred2$b_v[,d_ind$v[i]] + post_pred2$b_a[,d_ind$a[i]])
+  hist(p2[[i]])
+}
+
+y2 = list()
+par(mfrow = c(2,4))
+for (i in 1:8) {
+  y2[[i]] = rbinom(d_ind$n[i], prob = inv_logit(post_pred2$alpha + post_pred2$b_pr[,d_ind$pr[i]] + post_pred2$b_v[,d_ind$v[i]] + post_pred2$b_a[,d_ind$a[i]]), size = 10000)
+  hist(y2[[i]])
+}
+```
+
+(c) Now try to improve the model. Consider an interaction between the pirate’s size and age (immature or adult). Compare this model to the previous one, using WAIC. Interpret.    
+```{r}
+d_c = list(
+  y = eagles$y,
+  n = eagles$n,
+  pr = ifelse(eagles$P == 'L', 1, 2),
+  v = ifelse(eagles$V == 'L', 1, 2),
+  a = ifelse(eagles$A == 'A', 1, 2),
+  inter = c(1, 1, 2, 2, 3, 3, 4, 4)
+)
+
+m10.3.c = map2stan(
+  alist(
+  y ~ dbinom( n , p ),
+  logit(p) <- alpha + b_pr[pr] + b_v[v] + b_a[a] + b_inter[inter],
+  alpha ~ dnorm(0, 10),
+  b_pr[pr] ~ dnorm(0, 5),
+  b_v[v] ~ dnorm(0, 5),
+  b_a[a] ~ dnorm(0, 5),
+  b_inter[inter] ~ dnorm(0, 5)
+) , data=d_c, chains=4, core = 4, iter = 4000)
+#plot(m10.3.c)
+precis(m10.3.c , depth=2)
+compare(m10.3, m10.3.c)
+```
+
+> Interaction seems to be important.  
+
+11E3. When count data are zero-inflated, using a model that ignores zero-inflation will tend to induce which kind of inferential error?     
+
+> Underestimation of key parameters? Overdispersion? Hiding effects of interest or producing spurious inferences?   
+
+11E4. Over-dispersion is common in count data. Give an example of a natural process that might
+produce over-dispersed counts. Can you also give an example of a process that might produce underdispersed
+counts?    
+
+> In the case of flower opening time (i.e. hour of day when flowers open), existing heterogeneity of duration of flower opening introduces over-dispersion of flower count.   
+
+> I would imagine covariation between parameters can produce underdispersion of data. This could come from negative feedback loops common in biological processes. For example, plants that flower earlier in the day might have longer opening durationss, while later flowering plants havd shorter opening durations.     
+
+11H6. The data in data(Fish) are records of visits to a national park. See ?Fish for details. The
+question of interest is how many fish an average visitor takes per hour, when fishing. The problem is
+that not everyone tried to fish, so the fish_caught numbers are zero-inflated. As with the monks
+example in the chapter, there is a process that determines who is fishing (working) and another process
+that determines fish per hour (manuscripts per day), conditional on fishing (working). We want
+to model both. Otherwise we’ll end up with an underestimate of rate of fish extraction from the park.     
+
+You will model these data using zero-inflated Poisson GLMs. Predict fish_caught as a function
+of any of the other variables you think are relevant. One thing you must do, however, is use a proper
+Poisson offset/exposure in the Poisson portion of the zero-inflated model. Then use the hours variable
+to construct the offset. This will adjust the model for the differing amount of time individuals
+spent in the park.    
+
+```{r}
+data(Fish)
+head(Fish)
+
+f = list(
+  fish = Fish$fish_caught,
+  l = ifelse(Fish$livebait == 1, 1, 2),
+  camp = ifelse(Fish$camper ==1, 1, 2),
+  per = Fish$persons,
+  ch = Fish$child, 
+  log_h = log(Fish$hours)
+)
+m11.6 <- ulam(
+  alist(
+    fish ~ dzipois( p , lambda ),
+    logit(p) <- ap,
+    log(lambda) <- log_h + b_l[l] + b_c[camp] + b_p*per + b_ch*ch,
+    ap ~ dnorm( 0 , 1 ),
+    b_l[l] ~ dnorm( 0 , 1 ),
+    b_c[camp] ~ dnorm( 0 , 1 ),
+    b_p ~ dnorm( 0 , 1 ),
+    b_ch ~ dnorm( 0 , 1 )
+  ) , data=f, chains = 4, core = 4, iter = 4000)
+precis(m11.6)
+```
+
+
+11H1. In 2014, a paper was published that was entitled “Female hurricanes are deadlier than male
+hurricanes.”180 As the title suggests, the paper claimed that hurricanes with female names have caused
+greater loss of life, and the explanation given is that people unconsciously rate female hurricanes as
+less dangerous and so are less likely to evacuate.
+Statisticians severely criticized the paper after publication. Here, you’ll explore the complete data
+used in the paper and consider the hypothesis that hurricanes with female names are deadlier. Load
+the data with:
+
+
+```{r}
+data(Hurricanes)
+head(Hurricanes)
+?Hurricanes
+```
+
+In this problem, you’ll focus on predicting deaths using femininity of each hurricane’s name.
+Fit and interpret the simplest possible model, a Poisson model of deaths using femininity as a
+predictor. You can use map or map2stan. Compare the model to an intercept-only Poisson model of
+deaths. How strong is the association between femininity of name and deaths? Which storms does
+the model fit (retrodict) well? Which storms does it fit poorly?     
+
+```{r}
+h <- list( 
+  d = Hurricanes$deaths,
+  f = Hurricanes$femininity
+)
+m11.1 <- map2stan(
+  alist(
+    d ~ dpois( lambda ),
+    lambda <- exp(f^b_f),
+    b_f ~ dnorm(0,1)
+), data=h , log_lik=TRUE )
+precis(m11.1, 2)
+
+m11.1.1 <- map2stan(
+  alist(
+    d ~ dpois( lambda ),
+    lambda ~ dexp(1)
+), data=h)
+precis(m11.1.1, 2)
+
+```
+
+11H2. Counts are nearly always over-dispersed relative to Poisson. So fit a gamma-Poisson (aka
+negative-binomial) model to predict deaths using femininity. Show that the over-dispersed model
+no longer shows as precise a positive association between femininity and deaths, with an 89% interval
+that overlaps zero. Can you explain why the association diminished in strength?      
+
+```{r}
+
+```
+
+
+
