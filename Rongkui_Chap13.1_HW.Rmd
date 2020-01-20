@@ -1,0 +1,196 @@
+---
+title: "Rongkui_Chap13.1_HW"
+author: "Rongkui Han"
+date: "1/17/2020"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r}
+library(rethinking)
+data("reedfrogs")
+d = reedfrogs
+head(d)
+```
+
+#### 12M1   
+Revisit the Reed frog survival data, data(reedfrogs), and add the predation and size
+treatment variables to the varying intercepts model. Consider models with either main effect alone,
+both main effects, as well as a model including both and their interaction. Instead of focusing on
+inferences about these two predictor variables, focus on the inferred variation across tanks. Explain
+why it changes as it does across models.     
+
+> Original model: 
+
+```{r}
+d$tank <- 1:nrow(d)
+
+dat <- list(
+  S = d$surv,
+  N = d$density,
+  tank = d$tank )
+
+m13.2 <- ulam( 
+  alist(
+    S ~ dbinom( N , p ) ,
+    logit(p) <- a[tank] ,
+    a[tank] ~ dnorm( a_bar , sigma ) ,
+    a_bar ~ dnorm( 0 , 1.5 ) ,
+    sigma ~ dexp( 1 )
+  ), data=dat , chains=4 , log_lik=TRUE )
+```
+
+> size model, main effect alone:    
+
+```{r}
+dat2 <- list(
+  S = d$surv,
+  N = d$density,
+  tank = d$tank,
+  Z = ifelse(d$size == 'small', 1, 2))
+
+m13.3 <- ulam( 
+  alist(
+    S ~ dbinom( N , p ) ,
+    logit(p) <- a[tank] + b_z[Z], 
+    a[tank] ~ dnorm( a_bar , sigma ) ,
+    a_bar ~ dnorm( 0 , 1.5 ) ,
+    sigma ~ dexp( 1 ) ,
+    b_z[Z] ~ dnorm(0, 1)
+  ), data=dat2 , chains=4 , log_lik=TRUE )
+```
+
+> prediction model, main effect alone:    
+
+```{r}
+dat3 <- list(
+  S = d$surv,
+  N = d$density,
+  tank = d$tank,
+  pred = ifelse(d$pred == 'no', 1, 2))
+
+m13.4 <- ulam( 
+  alist(
+    S ~ dbinom( N , p ) ,
+    logit(p) <- a[tank] + b_p[pred], 
+    a[tank] ~ dnorm( a_bar , sigma ) ,
+    a_bar ~ dnorm( 0 , 1.5 ) ,
+    sigma ~ dexp( 1 ) ,
+    b_p[pred] ~ dnorm(0, 1)
+  ), data=dat3 , chains=4 , log_lik=TRUE )
+```
+
+> interaction model: 
+
+```{r}
+dat4 <- list(
+  S = d$surv,
+  N = d$density,
+  tank = d$tank,
+  Z = ifelse(d$size == 'small', 0, 1), 
+  pred = ifelse(d$pred == 'no', 0, 1),
+  interaction = ifelse(d$size == 'small', 0, 1)*ifelse(d$pred == 'no', 0, 1))
+
+m13.5 <- ulam( 
+  alist(
+    S ~ dbinom( N , p ), 
+    logit(p) <- a[tank] + b_z*Z + b_p*pred + b_int*interaction, 
+    a[tank] ~ dnorm( a_bar , sigma ) ,
+    a_bar ~ dnorm( 0 , 1.5 ) ,
+    sigma ~ dexp( 1 ) ,
+    b_z ~ dnorm(0, 1) ,
+    b_p ~ dnorm(0,1) ,
+    b_int ~ dnorm(0,1)
+  ), data=dat4 , chains=4 , log_lik=TRUE )
+```
+
+#### 12M2    
+Compare the models you fit just above, using WAIC. Can you reconcile the differences in
+WAIC with the posterior distributions of the models?   
+```{r}
+compare(m13.2, m13.3, m13.4, m13.5)
+```
+
+
+
+#### 12M3   
+
+Re-estimate the basic Reed frog varying intercept model, but now using a Cauchy distribution
+in place of the Gaussian distribution for the varying intercepts. That is, fit this model:
+si ~ Binomial(ni, pi)   
+logit(pi) = atank[i]   
+atank ~ Cauchy(a, s)   
+a ~ Normal(0, 1)    
+s ~ HalfCauchy(0, 1)    
+
+Compare the posterior means of the intercepts, atank, to the posterior means produced in the chapter,
+using the customary Gaussian prior. Can you explain the pattern of differences?     
+
+```{r}
+m12m3 <- ulam(
+  alist(
+    S ~ dbinom( N , p ) ,
+    logit(p) <- a[tank] ,
+    a[tank] ~ dcauchy( a_bar , sigma ) ,
+    a_bar ~ dnorm( 0 , 1.5 ) ,
+    sigma ~ dcauchy(0, 1)
+  ), data=dat , chains=4 , log_lik=TRUE )
+```
+
+```{r}
+precis(m12m3)
+compare(m12m3, m13.2)
+```
+
+#### 12H2       
+
+Return to the Trolley data, data(Trolley), from Chapter 12. Define and fit a varying intercepts
+model for these data. Cluster intercepts on individual participants, as indicated by the unique values in the id variable. Include action, intention, and contact as ordinary terms. Compare
+the varying intercepts model and a model that ignores individuals, using both WAIC and posterior
+predictions. What is the impact of individual variation in these data?    
+
+```{r}
+data(Trolley)
+d <- Trolley
+
+dat <- list(
+  R = d$response,
+  A = d$action,
+  I = d$intention,
+  C = d$contact,
+  id = as.numeric(d$id))
+
+m12h2.1 <- ulam(
+    alist(
+      R ~ dordlogit( phi , cutpoints ),
+      phi <- bA*A + bC*C + BI*I ,
+      BI <- bI + bIA*A + bIC*C ,
+      c(bA,bI,bC,bIA,bIC) ~ dnorm( 0 , 0.5 ),
+      cutpoints ~ dnorm( 0 , 1.5 )
+    ) , data=dat , chains=4 , cores=4, log_lik = TRUE )
+    
+```
+
+
+```{r}
+m12h2.2 <- ulam( alist(
+  R ~ dordlogit( phi , cutpoints ),
+  phi <- a[id] + bA*A + bC*C + BI*I ,
+  BI <- bI + bIA*A + bIC*C , 
+  a[id] ~ dnorm(0, sigma),  
+  c(bA,bI,bC,bIA,bIC) ~ dnorm( 0 , 0.5 ),
+  cutpoints ~ dnorm( 0 , 1.5 ),
+  sigma ~ dexp(1)) ,
+  data=dat, chains=4, log_lik = TRUE)
+```
+
+
+```{r}
+compare(m12h2.1, m12h2.2)
+```
+
+```{r}
+
+```
+

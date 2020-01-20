@@ -22,7 +22,7 @@ d = list(
   a = ifelse(eagles$A == 'A', 1, 2)
 )
 
-m10.3 <- map2stan(
+m10.3 <- ulam(
   alist(
   y ~ dbinom( n , p ),
   logit(p) <- alpha + b_pr[pr] + b_v[v] + b_a[a],
@@ -31,12 +31,14 @@ m10.3 <- map2stan(
   b_v[v] ~ dnorm(0, 5),
   b_a[a] ~ dnorm(0, 5)
 ) , data=d, chains=4, core = 4, iter = 4000)
-plot(m10.3)
+traceplot(m10.3)
 precis(m10.3 , depth=2)
+plot(m10.3, depth = 2)
+pairs(m10.3)
 ```
 
 ```{r}
-m10.3.1 <- map(
+m10.3.1 <- quap(
   alist(
   y ~ dbinom( n , p ),
   logit(p) <- alpha + b_pr[pr] + b_v[v] + b_a[a],
@@ -46,6 +48,8 @@ m10.3.1 <- map(
   b_a[a] ~ dnorm(0, 5)
 ) , data=d)
 precis(m10.3.1 , depth=2 )
+plot(m10.3.1)
+pairs(m10.3.1)
 ```
 
 (b) Now interpret the estimates. If the quadratic approximation turned out okay, then it’s okay to
@@ -74,6 +78,8 @@ for (i in 1:8) {
   y[[i]] = rbinom(d_ind$n[i], prob = inv_logit(post_pred$alpha + post_pred$b_pr[,d_ind$pr[i]] + post_pred$b_v[,d_ind$v[i]] + post_pred$b_a[,d_ind$a[i]]), size = 10000)
   hist(y[[i]])
 }
+
+plot(coeftab(m10.3, m10.3.1))
 ```
 
 ```{r}
@@ -104,7 +110,7 @@ d_c = list(
   inter = c(1, 1, 2, 2, 3, 3, 4, 4)
 )
 
-m10.3.c = map2stan(
+m10.3.c = ulam(
   alist(
   y ~ dbinom( n , p ),
   logit(p) <- alpha + b_pr[pr] + b_v[v] + b_a[a] + b_inter[inter],
@@ -114,8 +120,9 @@ m10.3.c = map2stan(
   b_a[a] ~ dnorm(0, 5),
   b_inter[inter] ~ dnorm(0, 5)
 ) , data=d_c, chains=4, core = 4, iter = 4000)
-#plot(m10.3.c)
+traceplot(m10.3.c)
 precis(m10.3.c , depth=2)
+plot(m10.3.c)
 compare(m10.3, m10.3.c)
 ```
 
@@ -169,7 +176,12 @@ m11.6 <- ulam(
     b_p ~ dnorm( 0 , 1 ),
     b_ch ~ dnorm( 0 , 1 )
   ) , data=f, chains = 4, core = 4, iter = 4000)
-precis(m11.6)
+precis(m11.6, depth = 2)
+plot(m11.6, depth = 2)
+```
+
+```{r}
+link(m11.6, data = f)
 ```
 
 
@@ -199,20 +211,26 @@ h <- list(
   d = Hurricanes$deaths,
   f = Hurricanes$femininity
 )
-m11.1 <- map2stan(
+m11.1 <- ulam(
   alist(
     d ~ dpois( lambda ),
-    lambda <- exp(f^b_f),
+    lambda <- a + b_f*f,
+    a ~ dexp(1),
     b_f ~ dnorm(0,1)
-), data=h , log_lik=TRUE )
+), data=h, , chains = 4, core = 4, iter = 4000, log_lik=TRUE)
 precis(m11.1, 2)
+```
 
+
+```{r}
 m11.1.1 <- map2stan(
   alist(
     d ~ dpois( lambda ),
     lambda ~ dexp(1)
 ), data=h)
 precis(m11.1.1, 2)
+
+mean(rpois(17.38, n = 10000))
 
 ```
 
