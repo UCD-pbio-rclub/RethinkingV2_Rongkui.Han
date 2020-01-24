@@ -1,0 +1,22 @@
+---
+title: "Rongkui_Chap13.2_HW"
+author: "Rongkui Han"
+date: "1/24/2020"
+output: html_document
+---
+
+12M4. Fit the following cross-classified multilevel model to the chimpanzees data:
+$$
+Li \sim Binomial(1, p_i)\\
+logit(p_i) = \alpha_{actor[i]} + \alpha_{block[i]} + (\beta_P + \beta_{PC}Ci)Pi\\
+\alpha_{actor} \sim Normal(\alpha, \sigma_{actor})\\
+\alpha_{block} \sim Normal(\gamma, \sigma_{block})\\
+\alpha, \gamma, \beta_p, \beta_{PC} \sim Normal(0, 10)\\
+\sigma_{actor}, \sigma_{}
+\sigma_{actor}; \sigma_{block} \sim HalfCauchy(0, 1)
+$$
+
+
+Each of the parameters in those comma-separated lists gets the same independent prior. Compare
+the posterior distribution to that produced by the similar cross-classified model from the chapter.
+Also compare the number of effective samples. Can you explain the differences?
