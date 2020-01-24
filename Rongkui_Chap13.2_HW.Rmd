@@ -5,18 +5,141 @@ date: "1/24/2020"
 output: html_document
 ---
 
-12M4. Fit the following cross-classified multilevel model to the chimpanzees data:
+###12M4.   
+
+Fit the following cross-classified multilevel model to the chimpanzees data:    
+
 $$
-Li \sim Binomial(1, p_i)\\
+L_i \sim Binomial(1, p_i)\\
 logit(p_i) = \alpha_{actor[i]} + \alpha_{block[i]} + (\beta_P + \beta_{PC}Ci)Pi\\
 \alpha_{actor} \sim Normal(\alpha, \sigma_{actor})\\
 \alpha_{block} \sim Normal(\gamma, \sigma_{block})\\
 \alpha, \gamma, \beta_p, \beta_{PC} \sim Normal(0, 10)\\
-\sigma_{actor}, \sigma_{}
-\sigma_{actor}; \sigma_{block} \sim HalfCauchy(0, 1)
+\sigma_{actor}, \sigma_{block} \sim HalfCauchy(0, 1)
 $$
-
 
 Each of the parameters in those comma-separated lists gets the same independent prior. Compare
 the posterior distribution to that produced by the similar cross-classified model from the chapter.
-Also compare the number of effective samples. Can you explain the differences?
+Also compare the number of effective samples. Can you explain the differences?    
+
+```{r}
+library(rethinking)
+data(chimpanzees)
+d <- chimpanzees
+d$treatment <- 1 + d$prosoc_left + 2*d$condition
+dat_list <- list(
+  pulled_left = d$pulled_left,
+  actor = d$actor,
+  block_id = d$block,
+  condition = d$condition,
+  prosoc = d$chose_prosoc,
+  treatment = as.integer(d$treatment) )
+```
+
+Original model:     
+```{r}
+m11.4 <- ulam(
+  alist(
+    pulled_left ~ dbinom( 1 , p ) ,
+    logit(p) <- a[actor] + b[treatment] ,
+    a[actor] ~ dnorm( 0 , 1.5 ),
+    b[treatment] ~ dnorm( 0 , 0.5 ),
+    ) ,
+  data=dat_list , chains=4 )
+```
+
+```{r}
+precis( m11.4 , depth=2 )
+```
+
+```{r}
+post <- extract.samples(m11.4)
+p_left <- inv_logit( post$a )
+plot( precis( as.data.frame(p_left) ) , xlim=c(0,1) )
+```
+
+New model:  
+```{r}
+m13.4 <- ulam(
+  alist(
+    pulled_left ~ dbinom( 1 , p ) ,
+    logit(p) <- a[actor] + g[block_id] + b_p*prosoc + b_pc*prosoc*condition ,
+    # adaptive priors
+    a[actor] ~ dnorm( a_bar , sigma_a ),
+    g[block_id] ~ dnorm( gamma_bar , sigma_g ),
+    # hyper-priors
+    c(a_bar, gamma_bar, b_p, b_pc)~ dnorm( 0 , 10 ),
+    c(sigma_a, sigma_g) ~ dhalfcauchy(1)
+  ), 
+  data=dat_list , chains=4 , cores=4 , log_lik=TRUE )
+```
+
+```{r}
+precis( m13.4 , depth=2 )
+```
+
+```{r}
+post <- extract.samples(m13.4)
+p_left <- inv_logit( post$a )
+plot( precis( as.data.frame(p_left) ) , xlim=c(0,1) )
+```
+
+```{r}
+compare(m11.4, m13.4)
+```
+
+```{r}
+neff_c <- precis( m11.4 , depth=2 )[['n_eff']]
+neff_nc <- precis( m13.4 , depth=2 )[['n_eff']]
+par_names <- rownames( precis( m13.4 , depth=2 ) )
+neff_table <- cbind( neff_c , neff_nc )
+rownames(neff_table) <- par_names
+round(t(neff_table))
+```
+
+### 12H3.      
+
+The Trolley data are also clustered by `story`, which indicates a unique narrative for each
+vignette. Define and fit a cross-classified varying intercepts model with both `id` and `story`. Use the
+same ordinary terms as in the previous problem. Compare this model to the previous models. What
+do you infer about the impact of different stories on responses?     
+
+```{r}
+data(Trolley)
+d_T<- Trolley
+
+dat_T <- list(
+  R = d_T$response,
+  A = d_T$action,
+  I = d_T$intention,
+  C = d_T$contact,
+  id = as.numeric(d_T$id),
+  story = as.numeric(d_T$tory)
+  )
+
+m12h2.2 <- ulam( alist(
+  R ~ dordlogit( phi , cutpoints ),
+  phi <- a[id] + bA*A + bC*C + BI*I ,
+  BI <- bI + bIA*A + bIC*C , 
+  a[id] ~ dnorm(0, sigma),  
+  c(bA,bI,bC,bIA,bIC) ~ dnorm( 0 , 0.5 ),
+  cutpoints ~ dnorm( 0 , 1.5 ),
+  sigma ~ dexp(1)) ,
+  data=dat_T, chains=4, log_lik = TRUE)
+
+m12h2.3 <- ulam( alist(
+  R ~ dordlogit( phi , cutpoints ),
+  phi <- a[id] + g[story] + bA*A + bC*C + BI*I ,
+  BI <- bI + bIA*A + bIC*C , 
+  a[id] ~ dnorm(0, sigma_a),  
+  g[story] ~ dnorm(0, sigma_g)
+  c(bA,bI,bC,bIA,bIC) ~ dnorm( 0 , 0.5 ),
+  cutpoints ~ dnorm( 0 , 1.5 ),
+  c(sigma_a, sigma_g) ~ dexp(1)) ,
+  data=dat_T, chains=4, log_lik = TRUE)
+```
+
+```{r}
+
+```
+
