@@ -117,7 +117,7 @@ dat_T <- list(
 )
 ```
 
-```{r, eval = FALSE}
+```{r}
 m12h2.2 <- ulam( alist(
   R ~ dordlogit( phi , cutpoints ),
   phi <- a[id] + bA*A + bC*C + BI*I ,
@@ -127,18 +127,19 @@ m12h2.2 <- ulam( alist(
   cutpoints ~ dnorm( 0 , 1.5 ),
   sigma ~ dexp(1)) ,
   data=dat_T, chains=2, log_lik = TRUE)
+save(m12h2.2, file = "/Users/rongkui/Desktop/StatisticalRethinking/m12h2.2.RData")
 
 m12h2.3 <- ulam( alist(
   R ~ dordlogit( phi , cutpoints ),
   phi <- a[id] + g[story] + bA*A + bC*C + BI*I ,
   BI <- bI + bIA*A + bIC*C , 
   a[id] ~ dnorm(0, sigma_a),  
-  g[story] ~ dnorm(0, sigma_g)
+  g[story] ~ dnorm(0, sigma_g), 
   c(bA,bI,bC,bIA,bIC) ~ dnorm( 0 , 0.5 ),
   cutpoints ~ dnorm( 0 , 1.5 ),
   c(sigma_a, sigma_g) ~ dexp(1)) ,
   data=dat_T, chains=2, log_lik = TRUE)
-save(m12h2.2, m12h2.3, file = "/Users/rongkui/Desktop/StatisticalRethinking/m12h2.RData")
+save(m12h2.3, file = "/Users/rongkui/Desktop/StatisticalRethinking/m12h2.3.RData")
 ```
 
 ```{r}
