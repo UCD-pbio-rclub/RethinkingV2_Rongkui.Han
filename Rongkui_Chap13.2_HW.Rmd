@@ -31,8 +31,6 @@ dat_list <- list(
   pulled_left = d$pulled_left,
   actor = d$actor,
   block_id = d$block,
-  condition = d$condition,
-  prosoc = d$chose_prosoc,
   treatment = as.integer(d$treatment) )
 ```
 
@@ -41,10 +39,10 @@ Original model:
 m11.4 <- ulam(
   alist(
     pulled_left ~ dbinom( 1 , p ) ,
-    logit(p) <- a[actor] + b[treatment] ,
+    logit(p) <- a[actor] + g[block_id] + b[treatment] ,
     a[actor] ~ dnorm( 0 , 1.5 ),
-    b[treatment] ~ dnorm( 0 , 0.5 ),
-    ) ,
+    g[block_id] ~ dnorm( 0 , 1.5 ),
+    b[treatment] ~ dnorm( 0 , 0.5 )) ,
   data=dat_list , chains=4 )
 ```
 
@@ -53,23 +51,21 @@ precis( m11.4 , depth=2 )
 ```
 
 ```{r}
-post <- extract.samples(m11.4)
-p_left <- inv_logit( post$a )
-plot( precis( as.data.frame(p_left) ) , xlim=c(0,1) )
+plot(m11.4, depth = 2)
 ```
+
 
 New model:  
 ```{r}
 m13.4 <- ulam(
   alist(
     pulled_left ~ dbinom( 1 , p ) ,
-    logit(p) <- a[actor] + g[block_id] + b_p*prosoc + b_pc*prosoc*condition ,
-    # adaptive priors
-    a[actor] ~ dnorm( a_bar , sigma_a ),
-    g[block_id] ~ dnorm( gamma_bar , sigma_g ),
-    # hyper-priors
-    c(a_bar, gamma_bar, b_p, b_pc)~ dnorm( 0 , 10 ),
-    c(sigma_a, sigma_g) ~ dhalfcauchy(1)
+    logit(p) <- a_bar + z[actor]*sigma_a + g_bar + y[block_id]*sigma_g + b[treatment],
+    b[treatment] ~ dnorm(0,1),
+    c(a_bar, g_bar) ~ dnorm(0,1),
+    z[actor] ~ dnorm(0,1),
+    y[block_id] ~ dnorm(0,1),
+    c(sigma_a, sigma_g) ~ dexp(1)
   ), 
   data=dat_list , chains=4 , cores=4 , log_lik=TRUE )
 ```
@@ -79,23 +75,26 @@ precis( m13.4 , depth=2 )
 ```
 
 ```{r}
-post <- extract.samples(m13.4)
-p_left <- inv_logit( post$a )
-plot( precis( as.data.frame(p_left) ) , xlim=c(0,1) )
+plot(m13.4, depth = 2)
 ```
 
+Compare n_eff:   
 ```{r}
-compare(m11.4, m13.4)
+library(ggplot2)
+n_eff1 = as.data.frame(precis(m11.4, depth=2 )[['n_eff']])
+names(n_eff1) = 'n_eff'
+
+n_eff2 = as.data.frame(precis(m13.4, depth=2 )[['n_eff']])
+names(n_eff2) = 'n_eff'
+
+ggplot() +
+  geom_histogram(data = n_eff1, aes(x = n_eff, fill = 'salmon'), bins = 20, alpha = 0.5) +
+  geom_histogram(data = n_eff2, aes(x = n_eff, fill = 'turquoise'), bins = 20, alpha = 0.5) +
+  scale_fill_manual(name = 'the fill', guide = 'legend', , 
+         values =c('salmon'='salmon','turquoise'='turquoise'), labels = c("m11.4","m13.4"))
 ```
 
-```{r}
-neff_c <- precis( m11.4 , depth=2 )[['n_eff']]
-neff_nc <- precis( m13.4 , depth=2 )[['n_eff']]
-par_names <- rownames( precis( m13.4 , depth=2 ) )
-neff_table <- cbind( neff_c , neff_nc )
-rownames(neff_table) <- par_names
-round(t(neff_table))
-```
+
 
 ### 12H3.      
 
@@ -115,8 +114,10 @@ dat_T <- list(
   C = d_T$contact,
   id = as.numeric(d_T$id),
   story = as.numeric(d_T$tory)
-  )
+)
+```
 
+```{r, eval = FALSE}
 m12h2.2 <- ulam( alist(
   R ~ dordlogit( phi , cutpoints ),
   phi <- a[id] + bA*A + bC*C + BI*I ,
@@ -125,7 +126,7 @@ m12h2.2 <- ulam( alist(
   c(bA,bI,bC,bIA,bIC) ~ dnorm( 0 , 0.5 ),
   cutpoints ~ dnorm( 0 , 1.5 ),
   sigma ~ dexp(1)) ,
-  data=dat_T, chains=4, log_lik = TRUE)
+  data=dat_T, chains=2, log_lik = TRUE)
 
 m12h2.3 <- ulam( alist(
   R ~ dordlogit( phi , cutpoints ),
@@ -136,10 +137,12 @@ m12h2.3 <- ulam( alist(
   c(bA,bI,bC,bIA,bIC) ~ dnorm( 0 , 0.5 ),
   cutpoints ~ dnorm( 0 , 1.5 ),
   c(sigma_a, sigma_g) ~ dexp(1)) ,
-  data=dat_T, chains=4, log_lik = TRUE)
+  data=dat_T, chains=2, log_lik = TRUE)
+save(m12h2.2, m12h2.3, file = "/Users/rongkui/Desktop/StatisticalRethinking/m12h2.RData")
 ```
 
 ```{r}
-
+load("/Users/rongkui/Desktop/StatisticalRethinking/m12h2.RData")
+compare(m12h2.2, m12h2.3)
 ```
 
