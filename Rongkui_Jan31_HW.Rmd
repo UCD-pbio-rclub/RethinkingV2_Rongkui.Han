@@ -2,7 +2,9 @@
 title: "HW_Jan31"
 author: "Rongkui Han"
 date: "1/31/2020"
-output: html_document
+output: 
+  html_document: 
+    keep_md: yes
 ---
 
 ```{r}
@@ -12,56 +14,252 @@ head(data)
 
 ### Q1
 
-a) subset the data for day 35     
+#### a) subset the data for day 35     
 
 ```{r}
 data = data[data$day == 35,]
 ```
 
-b) create a new column "stem_length" that is the sum of epi, int1, int2, and int3    
+#### b) create a new column "stem_length" that is the sum of epi, int1, int2, and int3    
 ```{r}
 data["stem_length"] = (data$epi + data$int1 + data$int2 + data$int3)
 ```
 
-c) although flats are listed as 1-6, flats in sun and shade are separate. Create a new column "flat2" that corrects for this.    
+#### c) although flats are listed as 1-6, flats in sun and shade are separate. Create a new column "flat2" that corrects for this.    
 ```{r}
 data['flat2'] = ifelse(data$treatment == 'shade', data$flat + 6, data$flat)
 data
+mean(data$stem_length)
 ```
 
 Ultimately you want to know if any of the mutants have a different length from Moneymaker, in sun or in shade, or if the response to shade differs.    
 
 ### Q2
-a) don't include flat.  Determine whether genotype, treatment, and their interaction are important predictors of stem_length     
+#### a) don't include flat.  Determine whether genotype, treatment, and their interaction are important predictors of stem_length     
 
 ```{r}
 library(rethinking)
 
 d = list(
   geno = as.numeric(data$genotype),
-  trt = as.numeric(data$treatment),
-  interaction = as.numeric(as.factor(paste(data$genotype, data$treatment, sep = "_"))),
+  trt = ifelse(data$treatment == "shade", 1, 0),
   sl = data$stem_length
 )
 
-mod2 = ulam(
+mod2a = ulam(
   alist(
-    stem_length ~ dnorm(mu, sigma_sl),
-    mu <- g[geno] + t[trt] + int[interaction],
-    g[geno]  ~ dnorm(0, 1),
-    t[trt] ~ dnorm(0,1),
-    int[interaction] ~ dnorm(0,1),
+    sl ~ dnorm(mu, sigma_sl),
+    mu <- g[geno] + t*trt + inter[geno]*trt,
+    g[geno]  ~ dnorm(141, 1),
+    t ~ dnorm(0,1),
+    inter[geno] ~ dnorm(0,1),
     sigma_sl ~ dexp(1)
-  ), data = d, chains = 4, cores = 4, iter = 2000
+  ), data = d, chains = 4, cores = 4, iter = 2000, log_lik = TRUE
+)
+```
+
+```{r}
+precis(mod2a, depth = 2)
+```
+
+> Nothing seemed to have any effect...? Try without interaction   
+
+```{r}
+mod2a2 = ulam(
+  alist(
+    sl ~ dnorm(mu, sigma_sl),
+    mu <- g[geno] + t*trt,
+    g[geno]  ~ dnorm(141, 1),
+    t ~ dnorm(0,1),
+    sigma_sl ~ dexp(1)
+  ), data = d, chains = 4, cores = 4, iter = 2000, log_lik = TRUE
+)
+```
+
+```{r}
+precis(mod2a2, depth = 2)
+```
+
+```{r}
+compare(mod2a, mod2a2)
+```
+
+> The one with interaction is slightly better
+
+b) starting with your best model from a), include flat without pooling     
+
+```{r}
+d2 = list(
+  geno = as.numeric(data$genotype),
+  trt = ifelse(data$treatment == "shade", 1, 0),
+  flat = data$flat,
+  sl = data$stem_length
 )
 
-precis(mod2)
+mod2b = ulam(
+  alist(
+    sl ~ dnorm(mu, sigma_sl),
+    mu <- g[geno] + t*trt + inter[geno]*trt + bf[flat],
+    g[geno]  ~ dnorm(141, 1),
+    t ~ dnorm(0,1),
+    inter[geno] ~ dnorm(0,1),
+    bf[flat] ~dnorm(0,1),
+    sigma_sl ~ dexp(1)
+  ), data = d2, chains = 4, cores = 4, iter = 2000, log_lik = TRUE
+)
+```
+
+```{r}
+precis(mod2b, depth = 2)
+```
+
+c) starting with your best model from a), use a hierarchical model that allows partial pooling across flats     
+
+```{r}
+mod2c = ulam(
+  alist(
+    sl ~ dnorm(mu, sigma_sl),
+    mu <- g[geno] + t*trt + inter[geno]*trt + bf[flat],
+    g[geno]  ~ dnorm(141, 1),
+    t ~ dnorm(0,1),
+    inter[geno] ~ dnorm(0,1),
+    bf[flat] ~ dnorm(flat_bar,sigma_flat),
+    flat_bar ~ dnorm(0,1), 
+    c(sigma_sl, sigma_flat) ~ dexp(1)
+  ), data = d2, chains = 4, cores = 4, iter = 2000, log_lik = TRUE
+)
+```
+
+```{r}
+precis(mod2c, depth = 2)
+```
+
+Q3) Compare the models, which is preferred?
+
+```{r}
+compare(mod2a, mod2b, mod2c)
+```
+
+> mod2c, the pooled flat model is slightly better than the other two. 
+
+Q4) Using the hierarchical model, make posterior predictions
+a) for average cluster      
+
+```{r}
+post <- extract.samples(mod2c)
+str(post)
+```
+
+```{r}
+#Shade condiction
+## R code 13.36
+p_link_abar_shade <- function(geno , trt=1) {
+    stem_length_shade <- with( post, g[,geno] + t*trt + inter[,geno]*trt )
+    return( stem_length_shade )
+}
+
+p_link_abar_light <- function( genotype , treatment_s=0) {
+    stem_length_light <- with( post, a[,genotype] + bT*treatment_s + bI[,genotype]*treatment_s )
+    return( stem_length_light )
+}
+
+## R code 13.37
+p_raw_shade <- sapply( 1:6 , function(i)  p_link_abar_shade(i) )
+p_mu_shade <- apply( p_raw_shade , 2 , mean )
+p_ci_shade <- apply( p_raw_shade , 2 , PI )
+#plot( NULL , xlab="genotype" , ylab="stem_length_shade" ,
+#    ylim=c(0,260) , xaxt="n" , xlim=c(1,6) )
+#axis( 1 , at=1:6 , labels=c("Moneymaker", "phyB1", "phyB1/B2", "phyB2", "phyEami3", "phyEami7") )
+#lines( 1:6 , p_mu_shade )
+#shade( p_ci_shade , 1:6 )
+#light condiction
+## R code 13.36
+
+## R code 13.37
+p_raw_light <- sapply( 1:6 , function(i) p_link_abar_light(i) )
+p_mu_light <- apply( p_raw_light , 2 , mean )
+p_ci_light <- apply( p_raw_light , 2 , PI )
+plot( NULL , xlab="genotype" , ylab="stem_length_light" ,
+    ylim=c(0,260) , xaxt="n" , xlim=c(1,6) )
+axis( 1 , at=1:6 , labels=c("Moneymaker", "phyB1", "phyB1/B2", "phyB2", "phyEami3", "phyEami7") )
+lines( 1:6 , p_mu_shade )
+shade( p_ci_shade , 1:6 )
+lines( 1:6 , p_mu_light )
+shade( p_ci_light , 1:6 )
 ```
 
 
-b) starting with your best model from a), include flat without pooling
-c) starting with your best model from a), use a hierarchical model that allows partial pooling across flats
+b) for same clusters   
+```{r}
+#Shade condiction
+## R code 13.36
+p_link_abar_shade <- function( genotype , treatment_s=1, flat_factor=3) {
+    stem_length_shade <- with( post, a[,genotype] + bT*treatment_s + bI[,genotype]*treatment_s + bF[,flat_factor] )
+    return( stem_length_shade )
+}
+## R code 13.37
+p_raw_shade <- sapply( 1:6 , function(i) p_link_abar_shade( i ) )
+p_mu_shade <- apply( p_raw_shade , 2 , mean )
+p_ci_shade <- apply( p_raw_shade , 2 , PI )
+plot( NULL , main= "shade_3", xlab="genotype" , ylab="stem_length_shade" ,
+    ylim=c(0,260) , xaxt="n" , xlim=c(1,6) )
+axis( 1 , at=1:6 , labels=c("Moneymaker", "phyB1", "phyB1/B2", "phyB2", "phyEami3", "phyEami7") )
+lines( 1:6 , p_mu_shade )
+shade( p_ci_shade , 1:6 )
+```
+
+
+c) showing the "marginal" from cluster
+
+```{r}
+## R code 13.39
+###shade
+plot( NULL , main= "new_clusters_shade", xlab="treatment" , ylab="stem_length_shade" ,
+    ylim=c(0,260) , xaxt="n" , xlim=c(1,6) )
+axis( 1 , at=1:6 , labels=c("Moneymaker", "phyB1", "phyB1/B2", "phyB2", "phyEami3", "phyEami7") )
+for ( i in 1:100 ) lines( 1:6 , p_raw_asim_shade[i,] , col=col.alpha("black",0.25) , lwd=2 )
+###sun
+plot( NULL , main= "new_clusters_sun", xlab="treatment" , ylab="stem_length_light" ,
+    ylim=c(0,260) , xaxt="n" , xlim=c(1,6) )
+axis( 1 , at=1:6 , labels=c("Moneymaker", "phyB1", "phyB1/B2", "phyB2", "phyEami3", "phyEami7") )
+for ( i in 1:100 ) lines( 1:6 , p_raw_asim_light[i,] , col=col.alpha("black",0.25) , lwd=2 )
+```
+
+
+d) showing new clusters.
+
 ```{r}
 
 ```
+
+
+Q5) Reparameterize the model to help with divergent transitions (even if there aren't any)
+
+```{r}
+mod5 = ulam(
+  alist(
+    sl ~ dnorm(mu, sigma_sl),
+    mu <- g[geno] + t*trt + inter[geno]*trt + bf[flat] + sigma_flat*norm,
+    g[geno]  ~ dnorm(141, 1),
+    t ~ dnorm(0,1),
+    inter[geno] ~ dnorm(0,1),
+    bf[flat] ~ dnorm(flat_bar,1),
+    norm ~ dnorm(0,1), 
+    flat_bar ~ dnorm(0,1),
+    c(sigma_sl, sigma_flat) ~ dexp(1)
+  ), data = d2, chains = 4, cores = 4, iter = 2000, log_lik = TRUE
+)
+```
+
+```{r}
+compare(mod5, mod2c)
+```
+
+
+### Q6--optional
+a) Which genotypes differ from MoneyMaker in Sun conditions?
+b) Which genotypes differ from MoneyMaker in Shade conditions?
+c) Which genotypes differ from MoneyMaker in their response to shade (difference in sun vs shade)?
+
+
 
