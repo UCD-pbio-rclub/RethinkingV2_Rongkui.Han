@@ -113,7 +113,7 @@ dat_T <- list(
   I = d_T$intention,
   C = d_T$contact,
   id = as.numeric(d_T$id),
-  story = as.numeric(d_T$story)
+  story = as.numeric(d_T$tory)
 )
 ```
 

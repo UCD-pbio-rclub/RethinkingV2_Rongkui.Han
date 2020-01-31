@@ -1,0 +1,67 @@
+---
+title: "HW_Jan31"
+author: "Rongkui Han"
+date: "1/31/2020"
+output: html_document
+---
+
+```{r}
+data = read.csv("/Users/rongkui/Desktop/StatisticalRethinking/figure4phyE.csv")
+head(data)
+```
+
+### Q1
+
+a) subset the data for day 35     
+
+```{r}
+data = data[data$day == 35,]
+```
+
+b) create a new column "stem_length" that is the sum of epi, int1, int2, and int3    
+```{r}
+data["stem_length"] = (data$epi + data$int1 + data$int2 + data$int3)
+```
+
+c) although flats are listed as 1-6, flats in sun and shade are separate. Create a new column "flat2" that corrects for this.    
+```{r}
+data['flat2'] = ifelse(data$treatment == 'shade', data$flat + 6, data$flat)
+data
+```
+
+Ultimately you want to know if any of the mutants have a different length from Moneymaker, in sun or in shade, or if the response to shade differs.    
+
+### Q2
+a) don't include flat.  Determine whether genotype, treatment, and their interaction are important predictors of stem_length     
+
+```{r}
+library(rethinking)
+
+d = list(
+  geno = as.numeric(data$genotype),
+  trt = as.numeric(data$treatment),
+  interaction = as.numeric(as.factor(paste(data$genotype, data$treatment, sep = "_"))),
+  sl = data$stem_length
+)
+
+mod2 = ulam(
+  alist(
+    stem_length ~ dnorm(mu, sigma_sl),
+    mu <- g[geno] + t[trt] + int[interaction],
+    g[geno]  ~ dnorm(0, 1),
+    t[trt] ~ dnorm(0,1),
+    int[interaction] ~ dnorm(0,1),
+    sigma_sl ~ dexp(1)
+  ), data = d, chains = 4, cores = 4, iter = 2000
+)
+
+precis(mod2)
+```
+
+
+b) starting with your best model from a), include flat without pooling
+c) starting with your best model from a), use a hierarchical model that allows partial pooling across flats
+```{r}
+
+```
+
