@@ -17,6 +17,7 @@ head(data)
 #### a) subset the data for day 35     
 
 ```{r}
+library(tidyverse)
 data = data[data$day == 35,]
 ```
 
@@ -43,14 +44,14 @@ library(rethinking)
 d = list(
   geno = as.numeric(data$genotype),
   trt = ifelse(data$treatment == "shade", 1, 0),
-  sl = data$stem_length
+  sl = scale(data$stem_length)
 )
 
 mod2a = ulam(
   alist(
     sl ~ dnorm(mu, sigma_sl),
     mu <- g[geno] + t*trt + inter[geno]*trt,
-    g[geno]  ~ dnorm(141, 1),
+    g[geno]  ~ dnorm(0,1),
     t ~ dnorm(0,1),
     inter[geno] ~ dnorm(0,1),
     sigma_sl ~ dexp(1)
@@ -60,6 +61,11 @@ mod2a = ulam(
 
 ```{r}
 precis(mod2a, depth = 2)
+plot(mod2a, depth = 2)
+```
+
+```{r}
+pairs(mod2a) #strong negative correlation between treatment effect and interaction effect
 ```
 
 > Nothing seemed to have any effect...? Try without interaction   
@@ -69,7 +75,7 @@ mod2a2 = ulam(
   alist(
     sl ~ dnorm(mu, sigma_sl),
     mu <- g[geno] + t*trt,
-    g[geno]  ~ dnorm(141, 1),
+    g[geno]  ~ dnorm(0, 1),
     t ~ dnorm(0,1),
     sigma_sl ~ dexp(1)
   ), data = d, chains = 4, cores = 4, iter = 2000, log_lik = TRUE
@@ -78,31 +84,55 @@ mod2a2 = ulam(
 
 ```{r}
 precis(mod2a2, depth = 2)
+plot(mod2a2, depth = 2)
 ```
 
 ```{r}
 compare(mod2a, mod2a2)
 ```
 
-> The one with interaction is slightly better
+> The one without interaction is much better. 
 
-b) starting with your best model from a), include flat without pooling     
+##### OR, you can keep the interaction and drop the main:    
+```{r}
+mod2a3 = ulam(
+  alist(
+    sl ~ dnorm(mu, sigma_sl),
+    mu <- g[geno] + inter[geno]*trt,
+    g[geno]  ~ dnorm(0, 1),
+    inter[geno] ~ dnorm(0,1),
+    sigma_sl ~ dexp(1)
+  ), data = d, chains = 4, cores = 4, iter = 2000, log_lik = TRUE
+)
+```
+
+```{r}
+precis(mod2a3, depth = 2)
+plot(mod2a3, depth = 2)
+```
+
+```{r}
+compare(mod2a, mod2a2, mod2a3)
+```
+
+> the main effect model is still better. But I guess it depends on what you are interested in. mod2a3 gives you a read out on response to shade in every genotype. 
+
+#### b) starting with your best model from a), include flat without pooling     
 
 ```{r}
 d2 = list(
   geno = as.numeric(data$genotype),
   trt = ifelse(data$treatment == "shade", 1, 0),
   flat = data$flat,
-  sl = data$stem_length
+  sl = scale(data$stem_length)
 )
 
 mod2b = ulam(
   alist(
     sl ~ dnorm(mu, sigma_sl),
-    mu <- g[geno] + t*trt + inter[geno]*trt + bf[flat],
-    g[geno]  ~ dnorm(141, 1),
+    mu <- g[geno] + t*trt + bf[flat],
+    g[geno]  ~ dnorm(0, 1),
     t ~ dnorm(0,1),
-    inter[geno] ~ dnorm(0,1),
     bf[flat] ~dnorm(0,1),
     sigma_sl ~ dexp(1)
   ), data = d2, chains = 4, cores = 4, iter = 2000, log_lik = TRUE
@@ -111,18 +141,26 @@ mod2b = ulam(
 
 ```{r}
 precis(mod2b, depth = 2)
+plot(mod2b, depth = 2)
 ```
 
-c) starting with your best model from a), use a hierarchical model that allows partial pooling across flats     
+> There does seem to be a flat effect
+
+```{r}
+compare(mod2b, mod2a2)
+```
+
+> mod2b wins by a landslide. 
+
+#### c) starting with your best model from a), use a hierarchical model that allows partial pooling across flats     
 
 ```{r}
 mod2c = ulam(
   alist(
     sl ~ dnorm(mu, sigma_sl),
-    mu <- g[geno] + t*trt + inter[geno]*trt + bf[flat],
-    g[geno]  ~ dnorm(141, 1),
+    mu <- g[geno] + t*trt + bf[flat],
+    g[geno]  ~ dnorm(0, 1),
     t ~ dnorm(0,1),
-    inter[geno] ~ dnorm(0,1),
     bf[flat] ~ dnorm(flat_bar,sigma_flat),
     flat_bar ~ dnorm(0,1), 
     c(sigma_sl, sigma_flat) ~ dexp(1)
@@ -132,18 +170,40 @@ mod2c = ulam(
 
 ```{r}
 precis(mod2c, depth = 2)
+plot(mod2c, depth = 2)
 ```
 
-Q3) Compare the models, which is preferred?
+### Q3) Compare the models, which is preferred?
 
 ```{r}
-compare(mod2a, mod2b, mod2c)
+compare(mod2b, mod2c)
 ```
 
-> mod2c, the pooled flat model is slightly better than the other two. 
+> mod2b is slightly better. 
 
-Q4) Using the hierarchical model, make posterior predictions
-a) for average cluster      
+> We could center the pooleed effect at 0 and only look at sigma_fl
+
+```{r}
+mod2c2 = ulam(
+  alist(
+    sl ~ dnorm(mu, sigma_sl),
+    mu <- g[geno] + t*trt + bf[flat],
+    g[geno]  ~ dnorm(0, 1),
+    t ~ dnorm(0,1),
+    bf[flat] ~ dnorm(0,sigma_flat),
+    c(sigma_sl, sigma_flat) ~ dexp(1)
+  ), data = d2, chains = 4, cores = 4, iter = 2000, log_lik = TRUE
+)
+```
+
+```{r}
+compare(mod2c, mod2c2)
+```
+
+> about the same
+
+### Q4) Using the hierarchical model, make posterior predictions
+#### a) for average cluster      
 
 ```{r}
 post <- extract.samples(mod2c)
@@ -151,46 +211,41 @@ str(post)
 ```
 
 ```{r}
-#Shade condiction
-## R code 13.36
-p_link_abar_shade <- function(geno , trt=1) {
-    stem_length_shade <- with( post, g[,geno] + t*trt + inter[,geno]*trt )
-    return( stem_length_shade )
+link_avg <- function(geno, trt) {
+  with(post, g[,geno] + t*trt)
 }
-
-p_link_abar_light <- function( genotype , treatment_s=0) {
-    stem_length_light <- with( post, a[,genotype] + bT*treatment_s + bI[,genotype]*treatment_s )
-    return( stem_length_light )
-}
-
-## R code 13.37
-p_raw_shade <- sapply( 1:6 , function(i)  p_link_abar_shade(i) )
-p_mu_shade <- apply( p_raw_shade , 2 , mean )
-p_ci_shade <- apply( p_raw_shade , 2 , PI )
-#plot( NULL , xlab="genotype" , ylab="stem_length_shade" ,
-#    ylim=c(0,260) , xaxt="n" , xlim=c(1,6) )
-#axis( 1 , at=1:6 , labels=c("Moneymaker", "phyB1", "phyB1/B2", "phyB2", "phyEami3", "phyEami7") )
-#lines( 1:6 , p_mu_shade )
-#shade( p_ci_shade , 1:6 )
-#light condiction
-## R code 13.36
-
-## R code 13.37
-p_raw_light <- sapply( 1:6 , function(i) p_link_abar_light(i) )
-p_mu_light <- apply( p_raw_light , 2 , mean )
-p_ci_light <- apply( p_raw_light , 2 , PI )
-plot( NULL , xlab="genotype" , ylab="stem_length_light" ,
-    ylim=c(0,260) , xaxt="n" , xlim=c(1,6) )
-axis( 1 , at=1:6 , labels=c("Moneymaker", "phyB1", "phyB1/B2", "phyB2", "phyEami3", "phyEami7") )
-lines( 1:6 , p_mu_shade )
-shade( p_ci_shade , 1:6 )
-lines( 1:6 , p_mu_light )
-shade( p_ci_light , 1:6 )
+data35 <- data %>%
+  filter(day==35) %>%
+  mutate(stem_length=epi + int1 + int2 + int3,
+         flat2=as.integer(as.factor(str_c(treatment, flat))),
+         shade_i=ifelse(treatment=="sun", 0L, 1L),
+         g_i= as.integer(factor(genotype,
+                                   levels=c("Moneymaker", 
+                                            "phyB1", 
+                                            "phyB2", 
+                                            "phyB1/B2", 
+                                            "phyEami3", 
+                                            "phyEami7")))) %>%
+  select(genotype, treatment, g_i, shade_i, flat2, stem_length)
+pred.df <- data35 %>% 
+  select(-stem_length, -flat2) %>% 
+  unique() %>%
+  mutate(treatment=factor(treatment, levels = c("sun", "shade")) ) # so the plot order is correct
+pred.df.avg <- pred.df %>%
+  mutate(average_response=map2(g_i, shade_i, link_avg),
+         pet_length=map_dbl(average_response, mean),
+         low.89=map_dbl(average_response, ~ HPDI(.)[1]),
+         high.89=map_dbl(average_response, ~ HPDI(.)[2]))
+pred.df.avg
+pred.df.avg %>%
+  ggplot(aes(x=genotype, y=pet_length, ymin=low.89, ymax=high.89, fill=treatment)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(width = .5, position = position_dodge(width=.9)) +
+  ggtitle("prediction averaged across flat")
 ```
 
-
-b) for same clusters   
-```{r}
+#### b) for same clusters   
+```{r, eval = FALSE, include = FALSE}
 #Shade condiction
 ## R code 13.36
 p_link_abar_shade <- function( genotype , treatment_s=1, flat_factor=3) {
@@ -209,52 +264,63 @@ shade( p_ci_shade , 1:6 )
 ```
 
 
-c) showing the "marginal" from cluster
+#### c) showing the "marginal" from cluster
 
 ```{r}
-## R code 13.39
-###shade
-plot( NULL , main= "new_clusters_shade", xlab="treatment" , ylab="stem_length_shade" ,
-    ylim=c(0,260) , xaxt="n" , xlim=c(1,6) )
-axis( 1 , at=1:6 , labels=c("Moneymaker", "phyB1", "phyB1/B2", "phyB2", "phyEami3", "phyEami7") )
-for ( i in 1:100 ) lines( 1:6 , p_raw_asim_shade[i,] , col=col.alpha("black",0.25) , lwd=2 )
-###sun
-plot( NULL , main= "new_clusters_sun", xlab="treatment" , ylab="stem_length_light" ,
-    ylim=c(0,260) , xaxt="n" , xlim=c(1,6) )
-axis( 1 , at=1:6 , labels=c("Moneymaker", "phyB1", "phyB1/B2", "phyB2", "phyEami3", "phyEami7") )
-for ( i in 1:100 ) lines( 1:6 , p_raw_asim_light[i,] , col=col.alpha("black",0.25) , lwd=2 )
+link_marg <- function(geno, trt) {
+  with(post, g[,geno] + trt + rnorm(length(sigma_flat), 0, sigma_flat))
+}
+pred.df.marg <- pred.df %>%
+  mutate(average_response=map2(g_i, shade_i, link_marg),
+         pet_length=map_dbl(average_response, mean),
+         low.89=map_dbl(average_response, ~ HPDI(.)[1]),
+         high.89=map_dbl(average_response, ~ HPDI(.)[2]))
+pred.df.marg
+pred.df.marg %>%
+  ggplot(aes(x=genotype, y=pet_length, ymin=low.89, ymax=high.89, fill=treatment)) +
+  geom_col(position = "dodge") +
+  geom_errorbar(width = .5, position = position_dodge(width=.9)) +
+  ggtitle("prediction marginal to flat")
 ```
 
 
-d) showing new clusters.
+#### d) showing new clusters.
 
 ```{r}
-
+plot.matrix <- sapply(pred.df.marg$average_response, function(x) x[1:50])
+colnames(plot.matrix) <- str_c(pred.df.marg$genotype, "_", pred.df.marg$treatment)
+plot.matrix <- t(plot.matrix)
+plot.matrix[,1:10]
+matplot(plot.matrix, type="l", xlab = colnames(plot.matrix))
 ```
 
 
-Q5) Reparameterize the model to help with divergent transitions (even if there aren't any)
+### Q5) Reparameterize the model to help with divergent transitions (even if there aren't any)
 
 ```{r}
 mod5 = ulam(
   alist(
     sl ~ dnorm(mu, sigma_sl),
-    mu <- g[geno] + t*trt + inter[geno]*trt + bf[flat] + sigma_flat*norm,
-    g[geno]  ~ dnorm(141, 1),
+    mu <- g[geno] + t*trt + bf[flat] + sigma_flat*norm,
+    g[geno]  ~ dnorm(0,1),
     t ~ dnorm(0,1),
-    inter[geno] ~ dnorm(0,1),
-    bf[flat] ~ dnorm(flat_bar,1),
+    bf[flat] ~ dnorm(0,1),
     norm ~ dnorm(0,1), 
-    flat_bar ~ dnorm(0,1),
     c(sigma_sl, sigma_flat) ~ dexp(1)
   ), data = d2, chains = 4, cores = 4, iter = 2000, log_lik = TRUE
 )
 ```
 
 ```{r}
+plot(mod5, depth = 2)
+```
+
+
+```{r}
 compare(mod5, mod2c)
 ```
 
+> the reparameterized model is better.    
 
 ### Q6--optional
 a) Which genotypes differ from MoneyMaker in Sun conditions?
