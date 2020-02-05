@@ -86,7 +86,7 @@ m7.1 <- ulam(
         simplex[7]: delta ~ dirichlet( alpha )
     ),
     data=dat , chains=4 , cores=4, log_lik = TRUE )
-precis(m7.2)
+precis(m7.1)
 ```
 
 #### PDF week 7 problems 2.      
