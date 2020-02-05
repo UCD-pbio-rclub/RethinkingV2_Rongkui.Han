@@ -1,0 +1,155 @@
+---
+title: "Rongkui_Chap10.2_HW"
+author: "Rongkui Han"
+date: "2/4/2020"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+#### 10E4.   
+Why do Poisson regressions sometimes require the use of an offset? Provide an example.    
+> An *offset* is used when exposure varies across observations. When the length of observation, area of sampling, or intensity of sampling varies, the counts we observe also naturally vary. Since a Poisson distribution assumes that the rate of events is constant in time (or space), it’s easy to handle this.What we do is to add the logarithm of the exposure to the linear model. The term we add is typically called an offset.
+
+#### 10M2.     
+If a coefficient in a Poisson regression has value 1.7, what does this imply about the change in the outcome?    
+```{r}
+exp(1.7)
+```
+
+> It means the outcome is 5.5 times more likely to happen.   
+
+#### 10M3.       
+Explain why the logit link is appropriate for a binomial generalized linear model.     
+
+> In a binomial GLM we are typically modeling the p parameter with a linear model. The p parameter, probability, must be constrained to the interval [0, 1], and the logit link function ensures this constraint.    
+
+#### 10M4.     
+Explain why the log link is appropriate for a Poisson generalized linear model.     
+
+> Lambda has to be possitive in a Poisson distribution. The log function makes sure that this is the case.   
+
+#### 10H4.     
+The data contained in data(salamanders) are counts of salamanders (*Plethodon elongatus*) from 47 different 49m2 plots in northern California. The column SALAMAN is the count in each plot, and the columns PCTCOVER and FORESTAGE are percent of ground cover and age of trees in the plot, respectively. You will model SALAMAN as a Poisson variable.      
+
+```{r}
+library(rethinking)
+data("salamanders")
+data = salamanders
+head(data)
+pairs(data)
+```
+
+(a) Model the relationship between density and percent cover, using a log-link (same as the example in the book and lecture). Use weakly informative priors of your choosing. Check the quadratic approximation again, by comparing map to map2stan. Then plot the expected counts and their 89% interval against percent cover. In which ways does the model do a good job? In which ways does it do a bad job?      
+
+```{r}
+d = list(
+  SLMD = data$SALAMAN,
+  PC = data$PCTCOVER,
+  FORA = data$FORESTAGE
+)
+
+mod.a_q <- quap(
+  alist(
+  SLMD ~ dpois( lambda ),
+  log(lambda) <- a + b*PC,
+  a ~ dnorm( 0 , 1 ),
+  b ~ dnorm( 0 , 1 )
+  ), data=d )
+
+precis(mod.a_q)
+WAIC(mod.a_q)
+```
+
+```{r}
+mod.a_u <- ulam(
+  alist(
+  SLMD ~ dpois( lambda ),
+  log(lambda) <- a + b*PC,
+  a ~ dnorm( 0 , 1 ),
+  b ~ dnorm( 0 , 1 )
+  ), data=d, log_lik = TRUE)
+
+precis(mod.a_u)
+WAIC(mod.a_u)
+```
+
+```{r}
+compare(mod.a_q, mod.a_u)
+```
+
+> QUAP is slightly better. 
+
+(b) Can you improve the model by using the other predictor, FORESTAGE? Try any models you think useful. Can you explain why FORESTAGE helps or does not help with prediction?   
+
+```{r}
+mod.a_u2 <- ulam(
+  alist(
+  SLMD ~ dpois( lambda ),
+  log(lambda) <- a + b*PC + c*FORA,
+  a ~ dnorm( 0 , 1 ),
+  b ~ dnorm( 0 , 1 ),
+  c ~ dnorm( 0, 1)
+  ), data=d, log_lik = TRUE)
+
+precis(mod.a_u2)
+compare(mod.a_u, mod.a_u2)
+```
+
+> previous one was better.    
+
+#### Week6 PDF 3    
+
+The data in data(Primates301) were first introduced at the end of Chapter 7. In this problem, you will consider how brain size is associated with social learning. There are three parts.     
+
+First, model the number of observations of social_learning for each species as a function of the log brain size. Use a Poisson distribution for the social_learning outcome variable. Interpret the resulting posterior.     
+
+```{r}
+data(Primates301)
+data_p = Primates301
+d2 <- data_p[ complete.cases( data_p$social_learning , data_p$brain , data_p$research_effort ) , ]
+dat <- list(
+    S = d2$social_learning,
+    B = scale(log(d2$brain)),
+    R = log(d2$research_effort)
+)
+
+PDF3.1 <- ulam(
+    alist(
+        S ~ dpois( lambda ),
+        log(lambda) <- a + b*B,
+        c(a,b) ~ normal(0,0.5)
+        ), data=dat , chains=4 , cores=4 , log_lik = TRUE)
+
+precis( PDF3.1 )
+plot(PDF3.1, depth = 2)
+```
+
+Second, some species are studied much more than others. So the number of reported instances of social_learning could be a product of research eff ort. Use the research_effort variable, specifi cally its logarithm, as an additional predictor variable. Interpret the coeffi cient for log research_effort. Does this model disagree with the previous one?
+
+```{r}
+PDF3.2 <- ulam(
+    alist(
+        S ~ poisson( lambda ),
+        log(lambda) <- a + b*B + c*R,
+        c(a,b,c) ~ normal(0,0.5)
+), data=dat , chains=4 , cores=4, log_lik = TRUE)
+precis( PDF3.2 )
+plot(PDF3.2)
+```
+
+```{r}
+compare(PDF3.1, PDF3.2)
+```
+
+> model 2 is much much better. 
+
+Third, draw a DAG to represent how you think the variables social_learning, brain, and research_effort interact. Justify the DAG with the measured associations in the two models above (and any other models you used).    
+
+```{r}
+library(dagitty)
+library(ggdag)
+dag <- dagitty("dag{B -> R -> S; B->S }")
+tidy_dagitty(dag)
+```
+
