@@ -1,0 +1,115 @@
+---
+title: "Rongkui_Chap11.2_HW"
+author: "Rongkui Han"
+date: "2/4/2020"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+#### 11E1.     
+What is the difference between an ordered categorical variable and an unordered one? Define and then give an example of each.  
+
+> Ordered categorical variables have meaningful ordering of its levels. Level, say, 5 is higher or lower than level 1. However, the increment between each pair of adjacent levels is not necessarily equal. Increasing a rating from 1 to 2, for instance, is very different from moving it from 4 to 5. Therefore ordered categorial variables are not the same as quantitative variables. Levels of the unordered categorical variable are not by nature higher or lower than one another. They are qualitatively different.    
+
+#### 11E2.     
+What kind of link function does an ordered logistic regression employ? How does it differ from an ordinary logit link?     
+
+> Cumulative logit link (log-cumulative-odds). This means constructing the odds of the cumulative probability of all levels below or equal to a given level and then taking a logarithm of that.     
+
+#### 11M1.    
+At a certain university, employees are annually rated from 1 to 4 on their productivity, with 1 being least productive and 4 most productive. In a certain department at this certain university in a certain year, the numbers of employees receiving each rating were (from 1 to 4): 12, 36, 7, 41. Compute the log cumulative odds of each rating.    
+
+```{r}
+count = c(12, 36, 7, 41)
+portion = count / sum(count)
+cmf = cumsum(portion)
+cumu_log <- log(cmf / (1 - cmf))
+cumu_log
+```
+
+#### 11M2.      
+Make a version of Figure 12.5 for the employee ratings data given just above.     
+```{r}
+plot( 1:4 , cmf , type="b" , xlab="response" ,
+ylab="cumulative proportion" , ylim=c(0,1) )
+
+prev = 0
+prev2 = 0
+for(i in 1:4){
+  lines(c(i,i),c(0,cmf[i]), lwd=4)
+  lines(c(i+0.03,i+0.03), c(prev, cmf[i]), lwd=4, col='blue')
+  #if(i>1){
+  #  lines(c(i-1+0.03, i+0.03), c(prev2,  prev))
+  #}
+  prev2 = prev
+  prev = cmf[i]
+}
+```
+
+#### PDF week 7 problems 1.    
+
+In the Trolley data—data(Trolley)—we saw how education level (modeled as an ordered category) is associated with responses. Is this association causal? One plausible confound is that education is also associated with age, through a causal process: People are older when they finish school than when they begin it. Reconsider the Trolley data in this light. Draw a DAG that represents hypothetical causal relationships among response, education, and age. Which statical model or models do you need to evaluate the causal influence of education on responses? Fit these models to the trolley data. What do you conclude about the causal relationships among these three variables?    
+
+```{r}
+library(dagitty)
+library(ggdag)
+dag = dagitty("dag{A -> E -> R; A -> R }")
+tidy_dagitty(dag)
+ggdag(dag, layout = "circle")
+```
+
+```{r}
+library(rethinking)
+data(Trolley)
+
+d = Trolley
+edu_levels <- c( 6 , 1 , 8 , 4 , 7 , 2 , 5 , 3 )
+d$edu_new <- edu_levels[ d$edu ]
+dat <- list(
+    R = d$response ,
+    action = d$action,
+    intention = d$intention,
+    contact = d$contact,
+    E = as.integer( d$edu_new ),   
+    alpha = rep( 2.1 , 7 ),        
+    Age = scale(d$age))
+
+m7.1 <- ulam(
+    alist(
+        R ~ ordered_logistic( phi , kappa ),
+        phi <- bE*sum( delta_j[1:E] ) + bA*action + BI*intention + bC*contact +bAG*Age,
+        BI <- bI + bIA*action + bIC*contact,
+        kappa ~ normal( 0 , 1.5 ),
+        c(bA,bI,bC,bE,bAG,bIA,bIC) ~ normal( 0 , 1 ),
+        vector[8]: delta_j <<- append_row( 0 , delta ),
+        simplex[7]: delta ~ dirichlet( alpha )
+    ),
+    data=dat , chains=4 , cores=4, log_lik = TRUE )
+precis(m7.2)
+```
+
+#### PDF week 7 problems 2.      
+
+Consider one more variable in the Trolley data: Gender. Suppose that gender might influence education as well as response directly. Draw the DAG now that includes response, education, age, and gender. Using only the DAG, is it possible that the inferences from Problem 1 are confounded by gender? If so, define any additional models you need to infer the causal influence of education on response. What do you conclude?     
+
+```{r}
+dag <- dagitty("dag{A -> E -> R; A -> R ; G -> E ; G -> R }")
+tidy_dagitty(dag)
+ggdag(dag, layout = "circle")
+dat$male <- d$male
+m7.2 <- ulam(
+    alist(
+        R ~ ordered_logistic( phi , kappa ),
+        phi <- bE*sum( delta_j[1:E] ) + bA*action + BI*intention + bC*contact + bAG*Age + bM*male,
+        BI <- bI + bIA*action + bIC*contact ,
+        kappa ~ normal( 0 , 1.5 ),
+        c(bA,bI,bC,bE,bAG,bIA,bIC,bM) ~ normal( 0 , 1 ),
+        vector[8]: delta_j <<- append_row( 0 , delta ),
+        simplex[7]: delta ~ dirichlet( alpha )
+    ),
+    data=dat , chains=4 , cores=4, log_lik = TRUE )
+precis(m7.2)
+compare(m7.1, m7.2)
+```
+
