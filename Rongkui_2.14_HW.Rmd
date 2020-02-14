@@ -1,0 +1,182 @@
+---
+title: "Rongkui_2.14_HW"
+author: "Rongkui Han"
+date: "2/13/2020"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+```{r}
+data = read.csv("/Users/rongkui/Desktop/StatisticalRethinking/clarkia_transplant_data.csv")
+head(data)
+```
+
+
+1. Fit a simple model with effects of temperature difference (temperature_diff_fall) on November germination (nov_germ). Temperature difference is already centered and scaled (i.e., negative values are the smallest temperature differences). Make sure to use the appropriate likelihood for the germination data (0 = no germ, 1  = germ).   
+
+```{r}
+library(rethinking)
+d = list(
+  tdf = data$temperature_diff_fall,
+  ng = data$nov_germ
+)
+
+mod1 = ulam(
+  alist(
+    ng ~ dbinom(1, p),
+    logit(p) <- u + a * tdf,
+    u ~ dnorm(0, 1),
+    a ~ dnorm(0, 1)
+  ), data = d, chains = 4, cores = 4, log_lik = TRUE
+)
+precis(mod1, depth = 2)
+```
+
+2. Simulate from your priors to see if you've chosen reasonable priors, adjust them if necessary.
+
+```{r}
+set.seed(1)
+prior = extract.prior(mod1)
+plot( NULL , xlim=c(min(data$temperature_diff_fall),max(data$temperature_diff_fall)) , ylim=c(-0.2,1.2) ,
+xlab="temp diff in fall" , ylab="germ prob", main = "Simulated prior" )
+tdf_seq <- sample(data$temperature_diff_fall, 50)
+mu <- link( mod1 , post=prior , data=data.frame(tdf = tdf_seq) )
+for ( i in 1:50 ) lines( tdf_seq , mu[i,] , col = col.alpha("black",0.3) )
+```
+
+These blocks were set up in the field, and had differences in soil depth, slope, and competitive environment. So maybe a model that includes block will describe the data better.
+
+3. Fit a model that includes an effect of block (blk), with no pooling.    
+
+```{r}
+d = list(
+  tdf = data$temperature_diff_fall,
+  ng = data$nov_germ,
+  blk = data$blk
+)
+
+mod3 = ulam(
+  alist(ng ~ dbinom(1, p),
+        logit(p) <- u + a * tdf + b[blk],
+        u ~ dnorm(0,1),
+        a  ~ dnorm(0,1), 
+        b[blk] ~ dnorm(0, 1)), 
+  data = d, chains = 4, cores = 4, log_lik = TRUE
+)
+precis(mod3, depth = 2)
+plot(mod3, depth = 2)
+compare(mod1, mod3)
+```
+
+> So the block effects are real. 
+
+4. Fit a model that includes block, and allows partial pooling.    
+
+```{r}
+mod4 = ulam(
+  alist(
+    ng ~ dbinom(1, p),
+        logit(p) <- u + a * tdf + b[blk],
+        u ~ dnorm(0,1),
+        a  ~ dnorm(0,1), 
+        b[blk] ~ dnorm(0, sigma_b), 
+        sigma_b ~ dexp(1)),
+  data = d, chains = 4, cores = 4, log_lik = TRUE
+)
+precis(mod4, depth = 2)
+plot(mod4, depth = 2)
+compare(mod4, mod3)
+```
+
+
+The experiment included many individuals from each of the 15 populations. So, each individual is not an independent representative of a given temperature, but might be similar to other plants from that population for reasons besides temperature.  
+
+5. Build a model that accounts for this by including population (pop) and allowing partial pooling between populations A) without block, 
+
+```{r}
+d = list(
+  tdf = data$temperature_diff_fall,
+  ng = data$nov_germ,
+  blk = data$blk,
+  pop = data$pop
+)
+
+mod5a = ulam(
+  alist(ng ~ dbinom(1, p),
+        logit(p) <- u + a * tdf + b_p[pop],
+        u ~ dnorm(0,1),
+        a  ~ dnorm(0,1), 
+        b_p[pop] ~ dnorm(0, sigma_p),
+        sigma_p ~ dexp(1)), 
+  data = d, chains = 4, cores = 4, log_lik = TRUE
+)
+
+precis(mod5a, depth = 2)
+plot(mod5a, depth = 2)
+```
+
+and B) with block included as in the model above. How does including population affect the temperature estimate?   
+
+```{r}
+mod5b = ulam(
+  alist(ng ~ dbinom(1, p),
+        logit(p) <- u + a * tdf + b_p[pop] + b[blk],
+        u ~ dnorm(0,1),
+        a  ~ dnorm(0,1), 
+        b_p[pop] ~ dnorm(0, sigma_p),
+        b[blk] ~ dnorm(0, 1),
+        sigma_p ~ dexp(1)), 
+  data = d, chains = 4, cores = 4, log_lik = TRUE
+)
+precis(mod5b, depth = 2)
+plot(mod5b, depth = 2)
+```
+
+6. Compare the five models you built using WAIC. Which fits best?
+
+```{r}
+compare(mod1, mod3, mod4, mod5a, mod5b)
+```
+
+> Model5b wins by a landslide.   
+
+7. Plot effects of temperature difference for the average block,       
+```{r}
+post5b = extract.samples(mod5b)
+p_link_bbar <- function( tdf ) {
+  logodds <- with( post5b , u + as.vector(a * tdf) )
+  return( inv_logit(logodds) )
+}
+
+seq = seq( min(data$temperature_diff_fall), max(data$temperature_diff_fall), length.out = 2000)
+
+p_raw <- sapply(seq, function(i) p_link_bbar( i ))
+p_mu <- apply(p_raw, 2, mean)
+p_ci <- apply(p_raw, 2, PI)
+plot( NULL , xlab="temperature difference in fall" , ylab="proportion germinated" , ylim=c(0,1) , xaxt="n" , xlim = c(min(data$temperature_diff_fall), max(data$temperature_diff_fall)) )
+lines( seq , p_mu )
+shade( p_ci , seq )
+```
+
+and also make a plot that includes the variability across blocks.    
+
+> Oops the final model I made did not have a sigma_block (aka did not pool across block).   
+
+```{r}
+b_sim <- with( post5b , rnorm( length(post5b$u) , 0 , 1 ) )
+p_link_bsim <- function( tdf ) {
+  logodds <- with( post5b , u + as.vector(a * tdf) + b_sim)
+  return( inv_logit(logodds) )
+}
+
+#seq = seq( min(data$temperature_diff_fall), max(data$temperature_diff_fall), length.out = 2000)
+
+p_raw_sim <- sapply(seq, function(i) p_link_bsim( i ))
+p_mu_sim <- apply(p_raw, 2, mean)
+p_ci_sim <- apply(p_raw, 2, PI)
+plot( NULL , xlab="temperature difference in fall" , ylab="proportion germinated" , ylim=c(0,1) , xaxt="n" , xlim = c(min(data$temperature_diff_fall), max(data$temperature_diff_fall)) )
+lines( seq , p_mu_sim )
+shade( p_ci_sim , seq )
+```
+
