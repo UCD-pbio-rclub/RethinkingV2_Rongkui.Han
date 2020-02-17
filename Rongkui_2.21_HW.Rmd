@@ -20,8 +20,8 @@ write.csv(nb2, file = "/Users/rongkui/Desktop/StatisticalRethinking/Nightbreak_0
 ```
 
 ```{r}
-nb2 = read.csv("/Users/rongkui/Desktop/StatisticalRethinking/Nightbreak_02_08_20_Rclub.csv")
-nb2
+nb = read.csv("/Users/rongkui/Desktop/StatisticalRethinking/Nightbreak_02_08_20_Rclub.csv")
+nb
 ```
 
 
