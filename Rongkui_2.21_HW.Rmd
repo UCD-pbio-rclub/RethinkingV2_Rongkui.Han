@@ -1,0 +1,245 @@
+---
+title: "Rongkui_2.21_HW"
+author: "Rongkui Han"
+date: "2/15/2020"
+output: html_document
+---
+### Q1:     
+a. Load the dataset. Look for column "Score" for the response variable we are interested in. A developmental score of 1 or 2 indicates vegetative growth, while a score of 3, 4, or 5 indicates reproductive growth. Create a "Reproduction" column with values 0 and 1, where 0 indicates vegetative growth and 1 indicates reproductive growth. 
+```{r, eval = FALSE}
+nb = read.csv("/Users/rongkui/Desktop/Lab/Aim1_Photoperiod/ShortDay2019/Nightbreak/Nightbreak_02_08_20.csv")
+head(nb)
+nb['repro'] = ifelse(nb$Score > 2, 1, 0) 
+nb[c("loc1","loc2","loc3","loc4","loc5")] = do.call(rbind, strsplit(as.character(nb$Geno), ""))
+nb = nb[,c("RIL","Treatment","Rep","Plot","Date","loc1","loc2","loc3","loc4","loc5","Score","repro")]
+nb = nb[complete.cases(nb),]
+nb[nb$Score < 1,"Score"] = 1
+nb2 = nb[,-which(colnames(nb)=="repro")]
+nb2 = nb2[order(nb2$Treatment, nb2$Rep, nb2$Plot),]
+write.csv(nb2, file = "/Users/rongkui/Desktop/StatisticalRethinking/Nightbreak_02_08_20_Rclub.csv", row.names = FALSE)
+```
+
+```{r}
+nb2 = read.csv("/Users/rongkui/Desktop/StatisticalRethinking/Nightbreak_02_08_20_Rclub.csv")
+nb2
+```
+
+
+b. (optional) Take a look at columns "loc1" through "loc5". The levels "A" or "P" indicate which parental allele the RIL has inherited. Can you think of a reason why there are 32 lines in this experiment? 
+
+
+### Q2:    
+Using the "Reproduction" column you created in Q1a as the response variable, fit a simple model with effects of genotype ("RIL") and treatment ("Treatment") on the rate of transitioning to reproductive growth by 2/8/20. (Things you might want to consider: appropriate likelihood function, intersection term).     
+ 
+```{r}
+library(rethinking)
+
+d = list(
+  g = nb$RIL,
+  pheno = nb$repro,
+  trt = nb$Treatment
+)
+
+
+mod = ulam(
+  alist(
+    pheno ~ dbinom(1, p),
+    logit(p) <- a + treatment[trt] + geno[g],
+    a ~ dnorm(0,1),
+    treatment[trt] ~ dnorm(0,1),
+    geno[g] ~ dnorm(0, 1)
+    ), data = d, cores = 4, chains = 4, log_lik = TRUE
+)
+
+precis(mod, depth = 2)
+plot(mod, depth = 2)
+```
+
+
+### Q3:
+Because we are more interested in the effects of individual loci than the performance of specific genotypes, fit a model with additive effects of the five loci and effect of treatment.  
+```{r}
+d2 = list(
+  l1 = ifelse(nb$loc1 == 'A', 1, 0),
+  l2 = ifelse(nb$loc2 == 'A', 1, 0),
+  l3 = ifelse(nb$loc3 == 'A', 1, 0),
+  l4 = ifelse(nb$loc4 == 'A', 1, 0),
+  l5 = ifelse(nb$loc5 == 'A', 1, 0),
+  pheno = nb$repro,
+  trt = nb$Treatment
+)
+
+mod2 = ulam(
+  alist(
+    pheno ~ dbinom(1, p),
+    logit(p) <- a + treatment[trt] + b1*l1 + b2*l2 + b3*l3 + b4*l4 + b5*l5,
+    a ~ dnorm(0,1),
+    treatment[trt] ~ dnorm(0,1),
+    c(b1, b2, b3, b4, b5) ~ dnorm(0, 1)
+    ), data = d2, cores = 4, chains = 4, log_lik = TRUE
+)
+precis(mod2, depth = 2)
+plot(mod2, depth = 2)
+```
+
+
+### Q4:    
+Now let's look at some interaction terms. Can you fit a model that takes into account interaction effects between treatment and allele types at the five loci? How do you interpret the output? (I built a somewhat "ugly" model for this question. I'm excited to see what y'all's models look like.)
+```{r}
+mod3 = ulam(
+  alist(
+    pheno ~ dbinom(1, p),
+    logit(p) <- a + treatment[trt] + b1*l1 + b2*l2 + b3*l3 + b4*l4 + b5*l5 + x1[trt]*l1 + x2[trt]*l2 + x3[trt]*l3 + x4[trt]*l4 + x5[trt]*l5,
+    a ~ dnorm(0,1),
+    treatment[trt] ~ dnorm(0,1),
+    x1[trt] ~ dnorm(0, 1), 
+    x2[trt] ~ dnorm(0, 1), 
+    x3[trt] ~ dnorm(0, 1), 
+    x4[trt] ~ dnorm(0, 1), 
+    x5[trt] ~ dnorm(0,1),
+    c(b1, b2, b3, b4, b5) ~ dnorm(0, 1)
+    ), data = d2, cores = 4, chains = 4, log_lik = TRUE
+)
+precis(mod3, depth = 2)
+plot(mod3, depth = 2)
+compare(mod, mod2, mod3)
+```
+
+```{r}
+mod4 = ulam(
+  alist(
+    pheno ~ dbinom(1, p),
+    logit(p) <- a + treatment[trt] + b1*l1 + b2*l2 + b3*l3 + b4*l4 + b5*l5 + x1[trt]*l1,
+    a ~ dnorm(0,1),
+    treatment[trt] ~ dnorm(0,1),
+    x1[trt] ~ dnorm(0, 1), 
+    c(b1, b2, b3, b4, b5) ~ dnorm(0, 1)
+    ), data = d2, cores = 4, chains = 4, log_lik = TRUE
+)
+precis(mod4, depth = 2)
+plot(mod4, depth = 2)
+compare(mod, mod2, mod3, mod4)
+```
+
+```{r}
+mod5 = ulam(
+  alist(
+    pheno ~ dbinom(1, p),
+    logit(p) <- a + treatment[trt] + b1*l1 + b2*l2 + b3*l3 + b4*l4 + b5*l5 + x2[trt]*l2,
+    a ~ dnorm(0,1),
+    treatment[trt] ~ dnorm(0,1),
+    x2[trt] ~ dnorm(0, 1), 
+    c(b1, b2, b3, b4, b5) ~ dnorm(0, 1)
+    ), data = d2, cores = 4, chains = 4, log_lik = TRUE
+)
+plot(mod5, depth = 2)
+```
+
+```{r}
+mod6 = ulam(
+  alist(
+    pheno ~ dbinom(1, p),
+    logit(p) <- a + treatment[trt] + b1*l1 + b2*l2 + b3*l3 + b4*l4 + b5*l5 + x3[trt]*l3,
+    a ~ dnorm(0,1),
+    treatment[trt] ~ dnorm(0,1),
+    x3[trt] ~ dnorm(0, 1), 
+    c(b1, b2, b3, b4, b5) ~ dnorm(0, 1)
+    ), data = d2, cores = 4, chains = 4, log_lik = TRUE
+)
+plot(mod6, depth = 2)
+```
+
+```{r}
+mod7 = ulam(
+  alist(
+    pheno ~ dbinom(1, p),
+    logit(p) <- a + treatment[trt] + b1*l1 + b2*l2 + b3*l3 + b4*l4 + b5*l5 + x4[trt]*l4,
+    a ~ dnorm(0,1),
+    treatment[trt] ~ dnorm(0,1),
+    x4[trt] ~ dnorm(0, 1), 
+    c(b1, b2, b3, b4, b5) ~ dnorm(0, 1)
+    ), data = d2, cores = 4, chains = 4, log_lik = TRUE
+)
+plot(mod7, depth = 2)
+```
+
+```{r}
+mod8 = ulam(
+  alist(
+    pheno ~ dbinom(1, p),
+    logit(p) <- a + treatment[trt] + b1*l1 + b2*l2 + b3*l3 + b4*l4 + b5*l5 + x5[trt]*l5,
+    a ~ dnorm(0,1),
+    treatment[trt] ~ dnorm(0,1),
+    x5[trt] ~ dnorm(0, 1), 
+    c(b1, b2, b3, b4, b5) ~ dnorm(0, 1)
+    ), data = d2, cores = 4, chains = 4, log_lik = TRUE
+)
+plot(mod8, depth = 2)
+```
+
+
+```{r}
+nb[nb$RIL == 'PI',]
+```
+
+### Q5:
+By simplifying the developmental score phenotype into a binary variable that indicates whether a plant has entered reproductive growth, we run the risk of losing potentially important information. Re-fit your favorite model from Q4 with the ordered categorical outcome variable of "Score." Do you observe any changes in your results? If so, why do you think it happened?
+```{r}
+d3 = list(
+  l1 = ifelse(nb$loc1 == 'A', 1, 0),
+  l2 = ifelse(nb$loc2 == 'A', 1, 0),
+  l3 = ifelse(nb$loc3 == 'A', 1, 0),
+  l4 = ifelse(nb$loc4 == 'A', 1, 0),
+  l5 = ifelse(nb$loc5 == 'A', 1, 0),
+  pheno_q = nb$Score,
+  trt = nb$Treatment
+)
+
+mod9 = ulam(
+  alist(
+    pheno_q ~ dordlogit( phi , kappa ),
+    phi <- a + treatment[trt] + b1*l1 + b2*l2 + b3*l3 + b4*l4 + b5*l5 + x1[trt]*l1 + x2[trt]*l2 + x3[trt]*l3 + x4[trt]*l4 + x5[trt]*l5,
+    a ~ dnorm(0,1),
+    treatment[trt] ~ dnorm(0,1),
+    x1[trt] ~ dnorm(0, 1), 
+    x2[trt] ~ dnorm(0, 1), 
+    x3[trt] ~ dnorm(0, 1), 
+    x4[trt] ~ dnorm(0, 1), 
+    x5[trt] ~ dnorm(0,1),
+    c(b1, b2, b3, b4, b5) ~ dnorm(0, 1),
+    kappa ~ dnorm(0,1.5)
+    ), data = d3, cores = 4, chains = 4, log_lik = TRUE
+)
+
+precis(mod9, depth = 2)
+plot(mod9, depth = 2)
+```
+
+```{r}
+compare(mod9, mod3)
+```
+
+> loc1 vs loc3?
+
+```{r}
+nb
+library(ggplot2)
+ggplot(nb, aes(x = Score)) +
+  geom_histogram(aes(fill = Treatment), bins = 7, position = 'dodge') +
+  facet_grid(loc1 ~ .)
+```
+
+
+```{r}
+ggplot(nb, aes(x = Score)) +
+  geom_histogram(aes(fill = Treatment), bins = 7, position = 'dodge') +
+  facet_grid(loc3 ~ .)
+```
+
+### Q6:
+Each "Plot" # correspond to a specific spot on a bench. In other words, the same plot # indicates equivalent locations on their respective benches even across different treatments and replicates. Update your favorite model from Q4 or Q5 using hierarchical modeling that allow partial pooling across plots. Compare the models. What do they say and which model do you prefer?    
+
+### Q7 (optional):
+a. What can we conclude regarding treatment effect?   
+b. What can we conclude regarding differential response to nightbreak treatment?   
+c. If we concluded that there are differential responses to nightbreak across genotypes, which genetic loci contributed to the differential responses, and which ones did not?   
