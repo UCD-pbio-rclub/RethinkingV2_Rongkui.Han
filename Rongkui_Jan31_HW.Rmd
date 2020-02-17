@@ -301,7 +301,7 @@ matplot(plot.matrix, type="l", xlab = colnames(plot.matrix))
 mod5 = ulam(
   alist(
     sl ~ dnorm(mu, sigma_sl),
-    mu <- g[geno] + t*trt + bf[flat] + sigma_flat*norm,
+    mu <- g[geno] + t*trt + bf[flat] + sigma_flat*norm, #could be g[geno] + t*trt + bf[flat]*sigma_flat, where bf[flat] ~ dnorm(0,1) and sigma_flat ~ dexp(1). But apparently Julin's didn't converge until he set sigma_flat~dnorm(0,1).
     g[geno]  ~ dnorm(0,1),
     t ~ dnorm(0,1),
     bf[flat] ~ dnorm(0,1),
@@ -323,7 +323,12 @@ compare(mod5, mod2c)
 > the reparameterized model is better.    
 
 ### Q6--optional
-a) Which genotypes differ from MoneyMaker in Sun conditions?
+a) Which genotypes differ from MoneyMaker in Sun conditions?    
+```{r}
+
+```
+
+
 b) Which genotypes differ from MoneyMaker in Shade conditions?
 c) Which genotypes differ from MoneyMaker in their response to shade (difference in sun vs shade)?
 

@@ -42,6 +42,7 @@ plot( NULL , xlim=c(min(data$temperature_diff_fall),max(data$temperature_diff_fa
 xlab="temp diff in fall" , ylab="germ prob", main = "Simulated prior" )
 tdf_seq <- sample(data$temperature_diff_fall, 50)
 mu <- link( mod1 , post=prior , data=data.frame(tdf = tdf_seq) )
+dim(mu)
 for ( i in 1:50 ) lines( tdf_seq , mu[i,] , col = col.alpha("black",0.3) )
 ```
 
@@ -68,6 +69,21 @@ precis(mod3, depth = 2)
 plot(mod3, depth = 2)
 compare(mod1, mod3)
 ```
+
+Take out intersect:
+```{r}
+mod3b = ulam(
+  alist(ng ~ dbinom(1, p),
+        logit(p) <- a * tdf + b[blk],
+        a  ~ dnorm(0,1), 
+        b[blk] ~ dnorm(0, 1)), 
+  data = d, chains = 4, cores = 4, log_lik = TRUE
+)
+precis(mod3b, depth = 2)
+plot(mod3b, depth = 2)
+compare(mod3, mod3b)
+```
+
 
 > So the block effects are real. 
 
