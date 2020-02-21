@@ -2,7 +2,9 @@
 title: "Rongkui_2.21_HW"
 author: "Rongkui Han"
 date: "2/15/2020"
-output: html_document
+output: 
+  html_document: 
+    keep_md: yes
 ---
 ### Q1:     
 a. Load the dataset. Look for column "Score" for the response variable we are interested in. A developmental score of 1 or 2 indicates vegetative growth, while a score of 3, 4, or 5 indicates reproductive growth. Create a "Reproduction" column with values 0 and 1, where 0 indicates vegetative growth and 1 indicates reproductive growth. 
@@ -21,7 +23,8 @@ write.csv(nb2, file = "/Users/rongkui/Desktop/StatisticalRethinking/Nightbreak_0
 
 ```{r}
 nb = read.csv("/Users/rongkui/Desktop/StatisticalRethinking/Nightbreak_02_08_20_Rclub.csv")
-nb
+#nb
+nb['repro'] = ifelse(nb$Score > 2, 1, 0) 
 ```
 
 
@@ -102,7 +105,7 @@ mod3 = ulam(
 )
 precis(mod3, depth = 2)
 plot(mod3, depth = 2)
-compare(mod, mod2, mod3)
+compare(mod, mod3)
 ```
 
 ```{r}
@@ -222,7 +225,6 @@ compare(mod9, mod3)
 > loc1 vs loc3?
 
 ```{r}
-nb
 library(ggplot2)
 ggplot(nb, aes(x = Score)) +
   geom_histogram(aes(fill = Treatment), bins = 7, position = 'dodge') +
@@ -239,7 +241,61 @@ ggplot(nb, aes(x = Score)) +
 ### Q6:
 Each "Plot" # correspond to a specific spot on a bench. In other words, the same plot # indicates equivalent locations on their respective benches even across different treatments and replicates. Update your favorite model from Q4 or Q5 using hierarchical modeling that allow partial pooling across plots. Compare the models. What do they say and which model do you prefer?    
 
+```{r}
+d3 = list(
+  l1 = ifelse(nb$loc1 == 'A', 1, 0),
+  l2 = ifelse(nb$loc2 == 'A', 1, 0),
+  l3 = ifelse(nb$loc3 == 'A', 1, 0),
+  l4 = ifelse(nb$loc4 == 'A', 1, 0),
+  l5 = ifelse(nb$loc5 == 'A', 1, 0),
+  pheno_q = nb$Score,
+  trt = nb$Treatment,
+  plot = nb$Plot
+)
+
+mod10 = ulam(
+  alist(
+    pheno_q ~ dordlogit( phi , kappa ),
+    phi <- a + treatment[trt] + b1*l1 + b2*l2 + b3*l3 + b4*l4 + b5*l5 + x1[trt]*l1 + x2[trt]*l2 + x3[trt]*l3 + x4[trt]*l4 + x5[trt]*l5 + b_p[plot],
+    a ~ dnorm(0,1),
+    treatment[trt] ~ dnorm(0,1),
+    x1[trt] ~ dnorm(0, 1), 
+    x2[trt] ~ dnorm(0, 1), 
+    x3[trt] ~ dnorm(0, 1), 
+    x4[trt] ~ dnorm(0, 1), 
+    x5[trt] ~ dnorm(0, 1),
+    b_p[plot] ~ dnorm(0, sigma_p),
+    sigma_p ~ dexp(1),     
+    c(b1, b2, b3, b4, b5) ~ dnorm(0,1), 
+    kappa ~ dnorm(0,1.5)), data = d3, cores = 4, chains = 4, log_lik = TRUE
+)
+
+#precis(mod10, depth = 2)
+plot(mod10, depth = 2)
+```
+
+
 ### Q7 (optional):
 a. What can we conclude regarding treatment effect?   
 b. What can we conclude regarding differential response to nightbreak treatment?   
-c. If we concluded that there are differential responses to nightbreak across genotypes, which genetic loci contributed to the differential responses, and which ones did not?   
+c. If we concluded that there are differential responses to nightbreak across genotypes, which genetic loci contributed to the differential responses, and which ones did not?    
+
+### Q8 (non existent) some posterior
+```{r}
+kA <- 0 # value for action
+kC <- 1 # value for contact
+kI <- 0:1 # values of intention to calculate over
+trt = 1:3
+pdat <- data.frame(l1 = 1, l2 = 1, l3 = 1, l4 = 1, l5 = 1, trt = 1:3, plot = 2)
+phi <- link( mod10 , data=pdat )
+post = extract.samples(mod10)
+plot(NULL, xlim = c(1,3), ylim = c(0, 1))
+for (s in 1:50) {
+  pk = pordlogit(1:4, phi[s,], post$kappa[s,])
+  for (i in 1:3) {
+    lines(trt, pk[,i], col = col.alpha("black",0.1) )
+  }
+}
+```
+
+
