@@ -252,6 +252,13 @@ ggplot(nb, aes(x = Score)) +
   facet_grid(loc3 ~ .)
 ```
 
+```{r}
+ggplot(nb, aes(x = Score)) +
+  geom_histogram(aes(fill = Treatment), bins = 7, position = 'dodge') +
+  facet_grid(loc2 ~ .)
+```
+
+
 ### Q6:
 Each "Plot" # correspond to a specific spot on a bench. In other words, the same plot # indicates equivalent locations on their respective benches even across different treatments and replicates. Update your favorite model from Q4 or Q5 using hierarchical modeling that allow partial pooling across plots. Compare the models. What do they say and which model do you prefer?    
 
