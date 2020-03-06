@@ -1,0 +1,226 @@
+---
+title: "Rongkui_Chap14.1_HW"
+author: "Rongkui Han"
+date: "3/4/2020"
+output: html_document
+---
+
+### 14E1
+Add to the following model varying slopes on the predictor x.    
+yi ~ Normal(mu_i, sigma)   
+mu_i = alpha_group[i] + beta * xi   
+alpha_group ~ Normal(alpha, sigma_alpha)    
+alpha ~ Normal(0, 10)    
+beta ~ Normal(0, 1)    
+sigma ~ HalfCauchy(0, 2)     
+sigma_alpha ~ HalfCauchy(0, 2)    
+
+> New model:    
+> yi ~ Normal(mu_i, sigma)   
+> mu_i = alpha_group[i] + beta[i] * xi    
+> [alpha_group[i], beta[i]] ~ MVNormal([alpha, beta], S)   
+> S = (sigma_alpha, 0, 0, sigma_beta)_2x2 R (sigma_alpha, 0, 0, sigma_beta)_2x2    
+> alpha ~ Normal(0, 10)    
+> beta ~ Normal(0, 1)    
+> sigma ~ HalfCauchy(0, 2)    
+> sigma_alpha ~ HalfCauchy(0, 2)    
+> sigma_beta ~ HalfCauchy(0, 2)    
+> R ~ LKJcorr(2)    
+
+The syntax for the multi-variate normal:     
+```{r, eval = FALSE}
+c(a_group, beta)[i] ~ multi_normal(c(a,b), Rho, sigma_i)
+sigma_i ~ exponential(i)
+Rho ~ lkj_corr(2)
+```
+
+### 14E2
+Think up a context in which varying intercepts will be positively correlated with varying
+slopes. Provide a mechanistic explanation for the correlation.    
+
+> "The rich gets richer"... something like that I guess? The response variable would be amount of asset a person owns at different time points. 
+
+### 14E3
+When is it possible for a varying slopes model to have fewer effective parameters (as estimated
+by WAIC or DIC) than the corresponding model with fixed (unpooled) slopes? Explain.    
+
+> When the correlation is high...?    
+
+### 14M1
+Repeat the café robot simulation from the beginning of the chapter. This time, set rho to zero,
+so that there is no correlation between intercepts and slopes. How does the posterior distribution of
+the correlation reflect this change in the underlying simulation?     
+
+```{r}
+library(rethinking)
+a <- 3.5 # average morning wait time 
+b <- (-1) # average difference afternoon wait time
+sigma_a <- 1 # std dev in intercepts
+sigma_b <- 0.5 # std dev in slopes
+rho <- 0 # correlation between intercepts and slopes
+Mu <- c( a , b )
+cov_ab <- sigma_a*sigma_b*rho
+Sigma <- matrix( c(sigma_a^2,cov_ab,cov_ab,sigma_b^2) , ncol=2 )
+sigmas <- c(sigma_a,sigma_b) # standard deviations 14.5
+Rho <- matrix( c(1,rho,rho,1) , nrow=2 ) # correlation matrix
+# now matrix multiply to get covariance matrix
+Sigma <- diag(sigmas) %*% Rho %*% diag(sigmas)
+N_cafes <- 20
+library(MASS) 
+set.seed(5) # used to replicate example
+vary_effects <- mvrnorm( N_cafes , Mu , Sigma )
+a_cafe <- vary_effects[,1] 
+b_cafe <- vary_effects[,2]
+plot( a_cafe , b_cafe , col='blue' , xlab="intercepts (a_cafe)" , ylab="slopes (b_cafe)" )
+# overlay population distribution
+library(ellipse)
+for ( l in c(0.1,0.3,0.5,0.8,0.99) ) {
+  lines(ellipse(Sigma,centre=Mu,level=l),col=col.alpha("black",0.2))
+}
+```
+
+```{r}
+set.seed(22) 
+N_visits <- 10
+afternoon <- rep(0:1,N_visits*N_cafes/2)
+cafe_id <- rep( 1:N_cafes , each=N_visits )
+mu <- a_cafe[cafe_id] + b_cafe[cafe_id]*afternoon
+sigma <- 0.5 # std dev within cafes
+wait <- rnorm( N_visits*N_cafes , mu , sigma )
+d <- data.frame( cafe=cafe_id , afternoon=afternoon , wait=wait )
+```
+
+```{r}
+m14m1 <- ulam( 
+  alist(
+    wait ~ normal( mu , sigma ),
+    mu <- a_cafe[cafe] + b_cafe[cafe]*afternoon,
+    c(a_cafe,b_cafe)[cafe] ~ multi_normal( c(a,b) , Rho , sigma_cafe ),
+    a ~ normal(5,2),
+    b ~ normal(-1,0.5),
+    sigma_cafe ~ exponential(1),
+    sigma ~ exponential(1),
+    Rho ~ lkj_corr(2)
+  ) , data=d , chains=4 , cores=4 )
+```
+
+```{r}
+precis(m14m1, depth = 2)
+plot(m14m1, depth = 2)
+```
+
+
+```{r}
+post <- extract.samples(m14m1)
+dens( post$Rho[,1,2] )
+```
+
+> posterior of rho is about 0. 
+
+### 14M2
+Fit this multilevel model to the simulated café data:
+Wi ~ Normal(mu_i, sigma)   
+mu_i = alpha_café[i] + beta_café[i] * Ai    
+alpha_café ~ Normal(alpha, sigma_alpha)     
+beta_café ~ Normal(beta, sigma_beta)    
+alpha ~ Normal(0, 10)     
+beta ~ Normal(0, 10)     
+sigma_alpha ~ HalfCauchy(0, 1)    
+sigma_beta ~ HalfCauchy(0, 1)    
+sigma ~ HalfCauchy(0, 1)    
+Use WAIC to compare this model to the model from the chapter, the one that uses a multi-variate
+Gaussian prior. Explain the result.      
+```{r}
+m14.1 <- ulam( 
+  alist(
+    wait ~ normal( mu , sigma ),
+    mu <- a_cafe[cafe] + b_cafe[cafe]*afternoon,
+    c(a_cafe,b_cafe)[cafe] ~ multi_normal( c(a,b) , Rho , sigma_cafe ),
+    a ~ normal(5,2),
+    b ~ normal(-1,0.5),
+    sigma_cafe ~ exponential(1),
+    sigma ~ exponential(1),
+    Rho ~ lkj_corr(2)
+  ) , data=d , chains=4 , cores=4, log_lik = TRUE)
+
+m14m2 = ulam(
+  alist(
+    wait ~ normal( mu , sigma ),
+    mu <- a_cafe[cafe] + b_cafe[cafe]*afternoon,
+    a_cafe[cafe] ~ dnorm(alpha, sigma_alpha),
+    b_cafe[cafe] ~ dnorm(beta, sigma_beta),
+    c(alpha, beta) ~ dnorm(0,10),
+    c(sigma, sigma_alpha, sigma_beta) ~ dexp(1)
+  ), data=d , chains=4 , cores=4, log_lik = TRUE)
+```
+
+```{r}
+compare(m14.1, m14m2)
+```
+
+> They are quite similar when rho = 0. Re-doing simulation with a stronger correlation:   
+
+```{r}
+a <- 3.5 # average morning wait time 
+b <- (-1) # average difference afternoon wait time
+sigma_a <- 1 # std dev in intercepts
+sigma_b <- 0.5 # std dev in slopes
+rho <- 0.7 # correlation between intercepts and slopes
+Mu <- c( a , b )
+cov_ab <- sigma_a*sigma_b*rho
+Sigma <- matrix( c(sigma_a^2,cov_ab,cov_ab,sigma_b^2) , ncol=2 )
+sigmas <- c(sigma_a,sigma_b) # standard deviations 14.5
+Rho <- matrix( c(1,rho,rho,1) , nrow=2 ) # correlation matrix
+# now matrix multiply to get covariance matrix
+Sigma <- diag(sigmas) %*% Rho %*% diag(sigmas)
+N_cafes <- 20
+library(MASS) 
+set.seed(5) # used to replicate example
+vary_effects <- mvrnorm( N_cafes , Mu , Sigma )
+a_cafe <- vary_effects[,1] 
+b_cafe <- vary_effects[,2]
+plot( a_cafe , b_cafe , col='blue' , xlab="intercepts (a_cafe)" , ylab="slopes (b_cafe)" )
+# overlay population distribution
+library(ellipse)
+for ( l in c(0.1,0.3,0.5,0.8,0.99) ) {
+  lines(ellipse(Sigma,centre=Mu,level=l),col=col.alpha("black",0.2))
+}
+set.seed(22) 
+N_visits <- 10
+afternoon <- rep(0:1,N_visits*N_cafes/2)
+cafe_id <- rep( 1:N_cafes , each=N_visits )
+mu <- a_cafe[cafe_id] + b_cafe[cafe_id]*afternoon
+sigma <- 0.5 # std dev within cafes
+wait <- rnorm( N_visits*N_cafes , mu , sigma )
+d_r0.7 <- data.frame( cafe=cafe_id , afternoon=afternoon , wait=wait )
+```
+
+```{r}
+m14.1_r0.7 <- ulam( 
+  alist(
+    wait ~ normal( mu , sigma ),
+    mu <- a_cafe[cafe] + b_cafe[cafe]*afternoon,
+    c(a_cafe,b_cafe)[cafe] ~ multi_normal( c(a,b) , Rho , sigma_cafe ),
+    a ~ normal(5,2),
+    b ~ normal(-1,0.5),
+    sigma_cafe ~ exponential(1),
+    sigma ~ exponential(1),
+    Rho ~ lkj_corr(2)
+  ) , data=d_r0.7 , chains=4 , cores=4, log_lik = TRUE)
+
+m14m2_r0.7 = ulam(
+  alist(
+    wait ~ normal( mu , sigma ),
+    mu <- a_cafe[cafe] + b_cafe[cafe]*afternoon,
+    a_cafe[cafe] ~ dnorm(alpha, sigma_alpha),
+    b_cafe[cafe] ~ dnorm(beta, sigma_beta),
+    c(alpha, beta) ~ dnorm(0,10),
+    c(sigma, sigma_alpha, sigma_beta) ~ dexp(1)
+  ), data=d_r0.7 , chains=4 , cores=4, log_lik = TRUE)
+```
+
+```{r}
+compare(m14.1_r0.7, m14m2_r0.7)
+```
+
+> Hmmm still...? Did I do something wrong...?
