@@ -2,7 +2,9 @@
 title: "Rongkui_Chap14.1_HW"
 author: "Rongkui Han"
 date: "3/4/2020"
-output: html_document
+output: 
+  html_document: 
+    keep_md: yes
 ---
 
 ### 14E1
