@@ -78,45 +78,36 @@ m14m3.2 <- ulam(
 
 
 ```{r}
-m14m1 <- ulam( 
-  alist(
-    wait ~ normal( mu , sigma ),
-    mu <- a_cafe[cafe] + b_cafe[cafe]*afternoon,
-    c(a_cafe,b_cafe)[cafe] ~ multi_normal( c(a,b) , Rho , sigma_cafe ),
-    a ~ normal(5,2),
-    b ~ normal(-1,0.5),
-    sigma_cafe ~ exponential(1),
-    sigma ~ exponential(1),
-    Rho ~ lkj_corr(2)
-  ) , data=d , chains=4 , cores=4 )
-```
-
-
-```{r}
 data(bangladesh)
 b = bangladesh
 head(b)
 
-dat_b <- list( use = b$use.contraception , distr = b$district, urban = b$urban )
+dat_b <- list( use = b$use.contraception , distr = as.factor(b$district), urban = b$urban )
 m14pdf1 <- ulam(
   alist(
-    use ~ dbinom( 1, p_u ),
-    logit(p_u) <- a_dist[distr] + b_urban[distr]*urban,
-    c(a_dist,b_urban)[distr] ~ multi_normal( c(a, b) , Rho , sigma_distr ) ,
+    use ~ dbinom( 1, p ),
+    logit(p) <- a_dist[distr] + b_urban[distr]*urban,
+    c(a_dist,b_urban)[distr] ~ multi_normal( c(a, b) , Rho , sigma_distr),
     a ~ normal(0, 1),
-    b ~ normal(0, 1),
+    b ~ normal(0,1),
     sigma_distr ~ exponential(1),
-    Rho ~ lkj_corr(2),
-  ), data=dat_b , chains=4, cores = 4, log_lik = TRUE)
+    Rho ~ lkj_corr(2)
+  ),data=dat_b , chains=4, cores = 4, log_lik = TRUE)
 
-precis(m14pdf1, depth  = 2)
-plot(m14mpdf1, depth  = 2)
+#precis(m14pdf1, depth  = 3)
+plot(m14pdf1, depth  = 3)
 ```
 
 Plotting predicted proportion of women using contraception, in each district, with urban women on one axis and rural on the other.      
 
 ```{r}
+datp <- list(
+  distr=rep(1:61,each=2) ,
+  urban=rep(c(0,1),times=61))
 
+p_post <- link( m14pdf1 , data=datp )
+p_mu <- apply( p_post , 2 , mean )
+p_ci <- apply( p_post , 2 , PI )
 ```
 
 
@@ -138,7 +129,7 @@ ggdag(dag)
 ```
 ##### To evaluate the Children -> Use relation:   
 
-```{r}
+```{r, eval = FALSE}
 
 dat_b <- list( U = b$use.contraception , distr = b$district, urban = b$urban , A = b$age.centered, C = b$living.children)
 
