@@ -38,10 +38,13 @@ plot(m14m3.1, depth  = 2)
 ```
 
 ```{r, eval = FALSE}
+d2 = d
+d2$gid <- ifelse( d$applicant.gender=="male" , 1L , 2L )
+dat2 <- list( A=d2$admit , N=d2$applications , gid=d2$gid , dep = d2$dept )
 m14m3.2 <- ulam( 
   alist(
     A ~ dbetabinom( N , pbar , theta ),
-    logit(pbar) <- a_dep[dep] + b_gender[dep]*gid,
+    logit(pbar) <- a_dep[dep] + b_gender[dep, gid],
     # L ~ binomial(1,p),
     # logit(p) <- g[tid] + alpha[actor,tid] + beta[block_id,tid],
     
@@ -52,23 +55,21 @@ m14m3.2 <- ulam(
     # compose_noncentered( sigma_block , L_Rho_block , z_block ),
     # matrix[4,actor]:z_actor ~ normal( 0 , 1 ),
     # matrix[4,block_id]:z_block ~ normal( 0 , 1 ),
-    
-    transpars> matrix[dep,6]:a_dep <- compose_noncentered( sigma_dep , L_Rho_dep , z_dep ),
     transpars> matrix[dep,6]:b_gender <- compose_noncentered( sigma_gender , L_Rho_gender, z_gender ),
-    matrix[6,dep]:z_dep ~ normal( 0 , 1 ),
     matrix[6,dep]:z_gender ~ normal( 0 , 1 ),
     
     # fixed priors
-    vector[6]:sigma_dep ~ dexp(1),
-    cholesky_factor_corr[6]:L_Rho_dep ~ lkj_corr_cholesky( 2 ),
     vector[6]:sigma_gender ~ dexp(1),
     cholesky_factor_corr[6]:L_Rho_gender ~ lkj_corr_cholesky( 2 ),
     theta ~ dexp(1),
+    a_dep[dep] ~ dnorm(0, 1),
     
     # compute ordinary correlation matrixes from Cholesky factors
-    gq> matrix[6,6]:Rho_dep <<- multiply_lower_tri_self_transpose(L_Rho_dep),
-    gq> matrix[6,6]:Rho_gender <<- multiply_lower_tri_self_transpose(L_Rho_gender),
-  ) , data=dat , chains=4 , cores=4 , log_lik=TRUE )
+    gq> matrix[6,6]:Rho_gender <<- multiply_lower_tri_self_transpose(L_Rho_gender)
+    ) , data=dat2 , chains=4 , cores=4 , log_lik=TRUE )
+
+
+plot(m14m3.2, depth = 3)
 ```
 
 
