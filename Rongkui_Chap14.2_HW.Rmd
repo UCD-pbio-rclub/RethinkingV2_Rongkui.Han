@@ -37,7 +37,7 @@ precis(m14m3.1, depth  = 2)
 plot(m14m3.1, depth  = 2)
 ```
 
-```{r}
+```{r, eval = FALSE}
 m14m3.2 <- ulam( 
   alist(
     A ~ dbetabinom( N , pbar , theta ),
@@ -100,7 +100,7 @@ plot(m14pdf1, depth  = 3)
 
 Plotting predicted proportion of women using contraception, in each district, with urban women on one axis and rural on the other.      
 
-```{r}
+```{r, eval = FALSE}
 datp <- list(
   distr=rep(1:61,each=2) ,
   urban=rep(c(0,1),times=61))
