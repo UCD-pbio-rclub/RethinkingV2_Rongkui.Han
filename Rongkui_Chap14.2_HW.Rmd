@@ -37,6 +37,25 @@ precis(m14m3.1, depth  = 2)
 plot(m14m3.1, depth  = 2)
 ```
 
+```{r}
+dat
+m14m3.1.1 <- ulam(
+  alist(
+    A ~ dbinom( N , pbar),
+    logit(pbar) <- a_dep[dep] + b_gender[dep]*gid,
+    c(a_dep, b_gender)[dep] ~ multi_normal( c(a_mean, b_mean) , Rho , sigma_dep ) ,
+    a_mean ~ normal(0.4, 0.25),
+    b_mean ~ normal(0, 1),
+    sigma_dep ~ exponential(1),
+    Rho ~ lkj_corr(2),
+  ), data=dat , chains=4, cores = 4, log_lik = TRUE)
+
+precis(m14m3.1.1, depth  = 2)
+plot(m14m3.1.1, depth  = 2)
+```
+
+
+
 ```{r, eval = FALSE}
 d2 = d
 d2$gid <- ifelse( d$applicant.gender=="male" , 1L , 2L )
@@ -44,7 +63,7 @@ dat2 <- list( A=d2$admit , N=d2$applications , gid=d2$gid , dep = d2$dept )
 m14m3.2 <- ulam( 
   alist(
     A ~ dbetabinom( N , pbar , theta ),
-    logit(pbar) <- a_dep[dep] + b_gender[dep, gid],
+    logit(pbar) <- a_dep[dep] + b_gender[gid, dep],
     # L ~ binomial(1,p),
     # logit(p) <- g[tid] + alpha[actor,tid] + beta[block_id,tid],
     
@@ -55,8 +74,8 @@ m14m3.2 <- ulam(
     # compose_noncentered( sigma_block , L_Rho_block , z_block ),
     # matrix[4,actor]:z_actor ~ normal( 0 , 1 ),
     # matrix[4,block_id]:z_block ~ normal( 0 , 1 ),
-    transpars> matrix[dep,6]:b_gender <- compose_noncentered( sigma_gender , L_Rho_gender, z_gender ),
-    matrix[6,dep]:z_gender ~ normal( 0 , 1 ),
+    transpars> matrix[gid,6]:b_gender <- compose_noncentered( sigma_gender , L_Rho_gender, z_gender ),
+    matrix[6,gid]:z_gender ~ normal( 0 , 1 ),
     
     # fixed priors
     vector[6]:sigma_gender ~ dexp(1),
@@ -70,6 +89,10 @@ m14m3.2 <- ulam(
 
 
 plot(m14m3.2, depth = 3)
+```
+
+```{r}
+compare(m14m3.1, m14m3.2)
 ```
 
 
