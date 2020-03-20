@@ -11,8 +11,12 @@ output: html_document
 to have kids). Number of children may also directly influence contraceptive use. Draw a DAG that reflects these hypothetical relationships. Then build models needed to evaluate the DAG. You will need at least two models. Retain district and urban, as in Problem 1. What do you conclude about the causal influence of age and children?     
 
 ```{r}
+library(rethinking)
 library(dagitty)
 library(ggdag)
+```
+
+```{r}
 dag = dagitty("dag{ 
               District -> Use 
               Urban -> Use
@@ -21,6 +25,7 @@ dag = dagitty("dag{
               Children -> Use}")
 ggdag(dag)
 ```
+
 ##### To evaluate the Children -> Use relation:   
 
 ```{r, eval = FALSE}
@@ -28,25 +33,87 @@ data(bangladesh)
 b = bangladesh
 head(b)
 
-dat_b <- list( U = b$use.contraception , distr = b$district, urban = b$urban , A = b$age.centered, C = b$living.children)
+dat_b <- list( U = b$use.contraception , distr = as.factor(b$district), urban = b$urban , A = b$age.centered, C = b$living.children)
 
-m14pdf2.1 <- ulam(
+
+m14pdf2.A <- ulam(
   alist(
     U ~ dbinom(1, p),
-    logit(p) <- a_dist[distr] + b_urban[distr]*urban,
-    c(p, children) ~ multi_normal( c(mup,muC) , Rho , Sigma ),
-    muU <- aU + bCU*C + bAU*A,
-    muC <- aC + bAC*A,
-    c(aU,aC) ~ normal( 0 , 0.2 ),
-    c(bEW,bQE) ~ normal( 0 , 0.5 ),
+    logit(p) <- a_dist[distr] + b_urban[distr]*urban + b_Age*A,
+    c(a_dist, b_urban)[distr] ~ multi_normal( c(mean_A,mean_bu) , Rho , Sigma ),
+    c(mean_A,mean_bu) ~ normal(0,1),
+    b_Age ~ normal( 0 , 1),
     Rho ~ lkj_corr( 2 ),
     Sigma ~ exponential( 1 )
   ), data=dat_b , chains=4 , cores=4, log_lik = TRUE )
-precis( m14pdf2.1 , depth=3 )
+precis( m14pdf2.A , depth=3 )
+plot(m14pdf2.A , depth=3)
 
 ```
 
+```{r}
+m14pdf2.C <- ulam(
+  alist(
+    U ~ dbinom(1, p),
+    logit(p) <- a_dist[distr] + b_urban[distr]*urban + b_Child*C,
+    c(a_dist, b_urban)[distr] ~ multi_normal( c(mean_A,mean_bu) , Rho , Sigma ),
+    c(mean_A,mean_bu) ~ normal(0,1),
+    b_Child ~ normal( 0 , 1),
+    Rho ~ lkj_corr( 2 ),
+    Sigma ~ exponential( 1 )
+  ), data=dat_b , chains=4 , cores=4, log_lik = TRUE )
+precis( m14pdf2.C , depth=3 )
+plot(m14pdf2.C , depth=3)
+```
+
+```{r}
+m14pdf2.CA <- ulam(
+  alist(
+    U ~ dbinom(1, p),
+    logit(p) <- a_dist[distr] + b_urban[distr]*urban + b_Child*C + b_Age*A ,
+    c(a_dist, b_urban)[distr] ~ multi_normal( c(mean_A,mean_bu) , Rho , Sigma ),
+    c(mean_A,mean_bu) ~ normal(0,1),
+    c(b_Child, b_Age) ~ normal( 0 , 1),
+    Rho ~ lkj_corr( 2 ),
+    Sigma ~ exponential( 1 )
+  ), data=dat_b , chains=4 , cores=4, log_lik = TRUE )
+precis( m14pdf2.CA , depth=3 )
+plot(m14pdf2.CA , depth=3)
+```
+
+```{r}
+m14pdf2.CA2 <- ulam(
+  alist(
+    U ~ dbinom(1, p),
+    logit(p) <- a_dist[distr] + b_urban[distr]*urban + b_Child*C + b_Age*A ,
+    c(a_dist, b_urban)[distr] ~ multi_normal( c(mean_A,mean_bu) , Rho , Sigma ),
+    c(mean_A,mean_bu) ~ normal(0,1)
+    c(b_Child, b_Age) ~ multi_normal( c(mean_bc,mean_ba) , Rho2 , Sigma2 ),
+    c(mean_bc, mean_bu) ~ normal( 0 , 1),
+    Rho ~ lkj_corr( 2 ),
+    Rho2 ~ lkj_corr( 2 ),
+    c(Sigmam Sigma2) ~ exponential( 1 )
+  ), data=dat_b , chains=4 , cores=4, log_lik = TRUE )
+precis( m14pdf2.CA2 , depth=3 )
+plot(m14pdf2.CA2 , depth=3)
+```
+
+```{r}
+compare(m14pdf2.C, m14pdf2.A, m14pdf2.CA, m14pdf2.CA2)
+```
+
+
 #### Instrumental variable
+
+```{r}
+library(foreign)
+qob = read.dta("/Users/rongkui/Desktop/StatisticalRethinking//NEW7080.dta")
+
+head(qob)
+
+qob = as.data.frame(qob[,c("v1", "v4", "v9", "v10", "v18", "v19")])
+```
+
 
 #### Hypocotyl      
 Attached are data from an experiment measuring hypocotyl length in ~ 180 natural arabidopsis accessions grown in high and low red:far-red light.  We want to know if there are differences in accessions in their length in high R:FR ("H") and in their response to low R:FR("L").  Also we want to obtain an estimate for hypocotyl length for each accession in high and low R:FR for downstream GWAS analysis.      
