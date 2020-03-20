@@ -1,0 +1,89 @@
+---
+title: "Rongkui_Chap14.3_HW"
+author: "Rongkui Han"
+date: "3/20/2020"
+output: html_document
+---
+
+#### PDF 2      
+
+2. Now consider the predictor variables age.centered and living.children, also contained in data(bangladesh). Suppose that age influences contraceptive use (changing attitudes) and number of children (older people have had more time
+to have kids). Number of children may also directly influence contraceptive use. Draw a DAG that reflects these hypothetical relationships. Then build models needed to evaluate the DAG. You will need at least two models. Retain district and urban, as in Problem 1. What do you conclude about the causal influence of age and children?     
+
+```{r}
+library(dagitty)
+library(ggdag)
+dag = dagitty("dag{ 
+              District -> Use 
+              Urban -> Use
+              Age -> Use
+              Age -> Children
+              Children -> Use}")
+ggdag(dag)
+```
+##### To evaluate the Children -> Use relation:   
+
+```{r, eval = FALSE}
+data(bangladesh)
+b = bangladesh
+head(b)
+
+dat_b <- list( U = b$use.contraception , distr = b$district, urban = b$urban , A = b$age.centered, C = b$living.children)
+
+m14pdf2.1 <- ulam(
+  alist(
+    U ~ dbinom(1, p),
+    logit(p) <- a_dist[distr] + b_urban[distr]*urban,
+    c(p, children) ~ multi_normal( c(mup,muC) , Rho , Sigma ),
+    muU <- aU + bCU*C + bAU*A,
+    muC <- aC + bAC*A,
+    c(aU,aC) ~ normal( 0 , 0.2 ),
+    c(bEW,bQE) ~ normal( 0 , 0.5 ),
+    Rho ~ lkj_corr( 2 ),
+    Sigma ~ exponential( 1 )
+  ), data=dat_b , chains=4 , cores=4, log_lik = TRUE )
+precis( m14pdf2.1 , depth=3 )
+
+```
+
+#### Instrumental variable
+
+#### Hypocotyl      
+Attached are data from an experiment measuring hypocotyl length in ~ 180 natural arabidopsis accessions grown in high and low red:far-red light.  We want to know if there are differences in accessions in their length in high R:FR ("H") and in their response to low R:FR("L").  Also we want to obtain an estimate for hypocotyl length for each accession in high and low R:FR for downstream GWAS analysis.      
+
+Relevant variables:
+length -- hypocotyl length       
+line -- unique ID for each accession (you could also use nativename)        
+light -- indicator for high or low RFR           
+exp -- two independent experiments were done        
+plate -- this is an incomplete block design with a subset (10? 12?) of accessions on each plate.           
+
+Let's try a variety of increasingly complex models:      
+
+-  No pooling          
+```{r}
+
+```
+
+-  Partial pooling of intercepts and slopes for line and intercepts for plate and experiment, but treat each variable separately (no multivariate component).  you might also consider adding an experiment slope effect          
+```{r}
+
+```
+
+- As 2, but use a multivariate normal model for the line slope and intercept effects      
+```{r}
+
+```
+
+- As 3, but non-centered      
+```{r}
+
+```
+
+
+Evaluate and compare the models.  Is there evidence of line, treatment, and line X treatment effects?  How does the magnitude of the experiment and plate effects compare to the line effects?      
+```{r}
+
+```
+
+

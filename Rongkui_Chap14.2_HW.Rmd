@@ -23,14 +23,13 @@ d$gid <- ifelse( d$applicant.gender=="male" , 0 , 1 )
 dat <- list( A=d$admit , N=d$applications , gid=d$gid , dep = d$dept )
 m14m3.1 <- ulam(
   alist(
-    A ~ dbetabinom( N , pbar , theta ),
+    A ~ dbinom( N , pbar ),
     logit(pbar) <- a_dep[dep] + b_gender[dep]*gid,
     c(a_dep, b_gender)[dep] ~ multi_normal( c(a_mean, b_mean) , Rho , sigma_dep ) ,
     a_mean ~ normal(0.4, 0.25),
     b_mean ~ normal(0, 1),
     sigma_dep ~ exponential(1),
-    Rho ~ lkj_corr(2),
-    theta ~ exponential(1)
+    Rho ~ lkj_corr(2)
   ), data=dat , chains=4, cores = 4, log_lik = TRUE)
 
 precis(m14m3.1, depth  = 2)
@@ -62,7 +61,7 @@ d2$gid <- ifelse( d$applicant.gender=="male" , 1L , 2L )
 dat2 <- list( A=d2$admit , N=d2$applications , gid=d2$gid , dep = d2$dept )
 m14m3.2 <- ulam( 
   alist(
-    A ~ dbetabinom( N , pbar , theta ),
+    A ~ dbetabinom( N , pbar ),
     logit(pbar) <- a_dep[dep] + b_gender[gid, dep],
     # L ~ binomial(1,p),
     # logit(p) <- g[tid] + alpha[actor,tid] + beta[block_id,tid],
@@ -80,7 +79,6 @@ m14m3.2 <- ulam(
     # fixed priors
     vector[6]:sigma_gender ~ dexp(1),
     cholesky_factor_corr[6]:L_Rho_gender ~ lkj_corr_cholesky( 2 ),
-    theta ~ dexp(1),
     a_dep[dep] ~ dnorm(0, 1),
     
     # compute ordinary correlation matrixes from Cholesky factors
@@ -134,42 +132,4 @@ p_mu <- apply( p_post , 2 , mean )
 p_ci <- apply( p_post , 2 , PI )
 ```
 
-
-#### PDF 2      
-
-2. Now consider the predictor variables age.centered and living.children, also contained in data(bangladesh). Suppose that age influences contraceptive use (changing attitudes) and number of children (older people have had more time
-to have kids). Number of children may also directly influence contraceptive use. Draw a DAG that reflects these hypothetical relationships. Then build models needed to evaluate the DAG. You will need at least two models. Retain district and urban, as in Problem 1. What do you conclude about the causal influence of age and children?     
-
-```{r}
-library(dagitty)
-library(ggdag)
-dag = dagitty("dag{ 
-              District -> Use 
-              Urban -> Use
-              Age -> Use
-              Age -> Children
-              Children -> Use}")
-ggdag(dag)
-```
-##### To evaluate the Children -> Use relation:   
-
-```{r, eval = FALSE}
-
-dat_b <- list( U = b$use.contraception , distr = b$district, urban = b$urban , A = b$age.centered, C = b$living.children)
-
-m14pdf2.1 <- ulam(
-  alist(
-    U ~ dbinom(1, p),
-    logit(p) <- a_dist[distr] + b_urban[distr]*urban,
-    c(p, children) ~ multi_normal( c(mup,muC) , Rho , Sigma ),
-    muU <- aU + bCU*C + bAU*A,
-    muC <- aC + bAC*A,
-    c(aU,aC) ~ normal( 0 , 0.2 ),
-    c(bEW,bQE) ~ normal( 0 , 0.5 ),
-    Rho ~ lkj_corr( 2 ),
-    Sigma ~ exponential( 1 )
-  ), data=dat_b , chains=4 , cores=4, log_lik = TRUE )
-precis( m14pdf2.1 , depth=3 )
-
-```
 
