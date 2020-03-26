@@ -172,22 +172,35 @@ Let's try a variety of increasingly complex models:
 
 -  No pooling          
 ```{r}
-d_hyp = list(length = scale(hypo$length), light = as.factor(hypo$light), geno = as.factor(hypo$line), expe = as.factor(hypo$exp), plate = as.factor(hypo$plate))
+d_hyp = list(length = scale(hypo$length), light = ifelse(hypo$light == 'H', 0, 1), geno = as.factor(hypo$line), expe = as.factor(hypo$exp), plate = as.factor(hypo$plate))
 
 m_hypo1 = ulam(
   alist(
     length ~ dnorm(mu_len, sigma),
-    mu_len <- b_light[light], b_geno[geno] + b_exp[expe] + b_p[plate],
+    mu_len <- b_light*light + b_geno[geno] + b_interaction[geno]*light + b_expe[expe] + b_pl[plate],
     b_light[light] ~ dnorm(0, 1), 
-    b_geno[geno] ~ dnorm(0,1),
-    b_exp[expe] ~ dnorm(0, 1),
-    b_p[plate] ~ dnorm(0, 1),
+    b_geno[geno] ~ dnorm(0, 1),
+    b_interaction[geno] ~ dnorm(0, 1),
+    b_expe[expe] ~ dnorm(0, 1),
+    b_pl[plate] ~ dnorm(0, 1),
     sigma ~ dexp(1)), data=d_hyp, chains=4, cores=4, log_lik = TRUE)
+precis(m_hypo1, depth = 2)
+plot(m_hypo1, depth = 2)
 ```
 
 -  Partial pooling of intercepts and slopes for line and intercepts for plate and experiment, but treat each variable separately (no multivariate component).  you might also consider adding an experiment slope effect          
 ```{r}
-
+m_hypo1 = ulam(
+  alist(
+    length ~ dnorm(mu_len, sigma),
+    mu_len <- b_light[light] + b_geno[geno] + b_expe[expe] + b_pl[plate],
+    b_light[light] ~ dnorm(0, 1), 
+    b_geno[geno] ~ dnorm(0,1),
+    b_expe[expe] ~ dnorm(0, 1),
+    b_pl[plate] ~ dnorm(0, 1),
+    sigma ~ dexp(1)), data=d_hyp, chains=4, cores=4, log_lik = TRUE)
+precis(m_hypo1, depth = 2)
+plot(m_hypo1, depth = 2)
 ```
 
 - As 2, but use a multivariate normal model for the line slope and intercept effects      
