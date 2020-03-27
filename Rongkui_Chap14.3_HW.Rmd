@@ -115,7 +115,7 @@ dim(qob) #wayyy too big
 qob = as.data.frame(qob[,c("v1", "v4", "v9", "v10", "v18", "v19")])
 names(qob) = c("Age", "Education", "LogWage", "Married", "QOB", "Race")
 
-selection = sample(1:nrow(qob), size = 10000)
+selection = sample(1:nrow(qob), size = 1000)
 qob = qob[selection,]
 
 d_qob = list(W = qob$LogWage, E = qob$Education, Q = qob$QOB, A = qob$Age, M = qob$Married, R = qob$Race)
@@ -131,6 +131,11 @@ m14_IV1 <- ulam(
     bEW ~ dnorm( 0 , 0.5 ),
     sigma ~ dexp( 1 )
   ) , data=d_qob , chains=4 , cores=4 , log_lik = TRUE )
+save(m14_IV1, file = "/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m14_IV1.RData")
+```
+
+```{r}
+load("/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m14_IV2.RData")
 precis( m14_IV1 )
 plot(m14_IV1, depth = 2)
 ```
@@ -148,6 +153,11 @@ m14_IV2 <- ulam(
     Rho ~ lkj_corr( 2 ),
     Sigma ~ exponential( 1 )
   ), data=d_qob , chains=4 , cores=4)
+save(m14_IV2, file = "/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m14_IV2.RData")
+```
+
+```{r}
+load("/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m14_IV2.RData")
 precis( m14_IV2 , depth=3 )
 plot( m14_IV2 , depth=3 )
 ```
@@ -171,52 +181,106 @@ head(hypo)
 Let's try a variety of increasingly complex models:      
 
 -  No pooling          
-```{r}
+```{r, eval = FALSE}
 d_hyp = list(length = scale(hypo$length), light = ifelse(hypo$light == 'H', 0, 1), geno = as.factor(hypo$line), expe = as.factor(hypo$exp), plate = as.factor(hypo$plate))
 
 m_hypo1 = ulam(
   alist(
     length ~ dnorm(mu_len, sigma),
     mu_len <- b_light*light + b_geno[geno] + b_interaction[geno]*light + b_expe[expe] + b_pl[plate],
-    b_light[light] ~ dnorm(0, 1), 
+    b_light ~ dnorm(0, 1), 
     b_geno[geno] ~ dnorm(0, 1),
     b_interaction[geno] ~ dnorm(0, 1),
     b_expe[expe] ~ dnorm(0, 1),
     b_pl[plate] ~ dnorm(0, 1),
     sigma ~ dexp(1)), data=d_hyp, chains=4, cores=4, log_lik = TRUE)
-precis(m_hypo1, depth = 2)
-plot(m_hypo1, depth = 2)
+save(m_hypo1, file = "/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m_hypo1.RData")
+#precis(m_hypo1, depth = 2)
+#plot(m_hypo1, depth = 2)
+```
+
+```{r}
+load("/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m_hypo1.RData")
 ```
 
 -  Partial pooling of intercepts and slopes for line and intercepts for plate and experiment, but treat each variable separately (no multivariate component).  you might also consider adding an experiment slope effect          
-```{r}
-m_hypo1 = ulam(
+```{r, eval = FALSE}
+m_hypo2 = ulam(
   alist(
     length ~ dnorm(mu_len, sigma),
-    mu_len <- b_light[light] + b_geno[geno] + b_expe[expe] + b_pl[plate],
-    b_light[light] ~ dnorm(0, 1), 
-    b_geno[geno] ~ dnorm(0,1),
+    mu_len <- b_light*light + b_geno[geno] + b_interaction[geno]*light + b_expe[expe] + b_pl[plate],
+    b_light ~ dnorm(0, 1), 
+    b_geno[geno] ~ dnorm(mu_geno, sigma_geno),
+    b_interaction[geno] ~ dnorm(mu_inter, sigma_inter),
     b_expe[expe] ~ dnorm(0, 1),
     b_pl[plate] ~ dnorm(0, 1),
+    mu_geno ~ dnorm(0, 1), 
+    sigma_geno ~ dexp(1),
+    mu_inter ~ dnorm(0, 1),
+    sigma_inter ~ exp(1),
     sigma ~ dexp(1)), data=d_hyp, chains=4, cores=4, log_lik = TRUE)
-precis(m_hypo1, depth = 2)
-plot(m_hypo1, depth = 2)
+precis(m_hypo2, depth = 2)
+plot(m_hypo2, depth = 2)
+save(m_hypo2, file = "/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m_hypo2.RData")
+```
+
+```{r}
+load("/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m_hypo2.RData")
 ```
 
 - As 2, but use a multivariate normal model for the line slope and intercept effects      
-```{r}
+```{r, eval = FALSE}
+m_hypo3 = ulam(
+  alist(
+    length ~ dnorm(mu_len, sigma),
+    mu_len <- b_light*light + b_geno[geno] + b_interaction[geno]*light + b_expe[expe] + b_pl[plate],
+    b_light ~ dnorm(0, 1), 
+    b_expe[expe] ~ dnorm(0, 1),
+    b_pl[plate] ~ dnorm(0, 1),
+    c(b_geno, b_interaction)[geno] ~ multi_normal( c(muG,muI) , Rho , Sigma ),
+    Rho ~ lkj_corr( 2 ),
+    muG ~ dnorm(0, 1),
+    muI ~ dnorm(0, 1),
+    Sigma ~ dexp(1),
+    sigma ~ dexp(1)), data=d_hyp, chains=4, cores=4, log_lik = TRUE)
+#precis(m_hypo3, depth = 2)
+#plot(m_hypo3, depth = 2)
+save(m_hypo3, file = "/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m_hypo3.RData")
+```
 
+```{r}
+load("/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m_hypo3.RData")
 ```
 
 - As 3, but non-centered      
-```{r}
+```{r, eval = FALSE}
+d_hyp4 = list(length = scale(hypo$length), light = ifelse(hypo$light == 'H', 1, 2), geno = as.factor(hypo$line), expe = as.factor(hypo$exp), plate = as.factor(hypo$plate))
 
+m_hypo4 = ulam(
+  alist(
+    length ~ dnorm(mu_len, sigma),
+    mu_len <- b_interaction[geno, light] + b_expe[expe] + b_pl[plate],
+    b_expe[expe] ~ dnorm(0, 1),
+    b_pl[plate] ~ dnorm(0, 1),
+    transpars> matrix[geno, 2]:b_interaction <- compose_noncentered(sigma_geno, L_Rho_geno, z_geno),
+    matrix[2, geno]:z_geno ~ normal(0, 1),
+    sigma ~ dexp(1),
+    vector[2]:sigma_geno ~ dexp(1),
+    cholesky_factor_corr[2]:L_Rho_geno ~ lkj_corr_cholesky(2),
+    gq> matrix[2,2]: Rho_geno <<- multiply_lower_tri_self_transpose(L_Rho_geno)), data=d_hyp4, chains=4, cores=4, log_lik = TRUE)
+#precis(m_hypo4, depth = 3)
+#plot(m_hypo4, depth = 3)
+save(m_hypo4, file = "/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m_hypo4.RData")
 ```
 
+```{r}
+load("/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m_hypo4.RData")
+```
 
 Evaluate and compare the models.  Is there evidence of line, treatment, and line X treatment effects?  How does the magnitude of the experiment and plate effects compare to the line effects?      
 ```{r}
-
+compare(m_hypo1, m_hypo2, m_hypo3, m_hypo4)
+plot(m_hypo4, depth = 3)
 ```
 
 
