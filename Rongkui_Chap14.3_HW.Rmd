@@ -191,8 +191,10 @@ m_hypo1 = ulam(
     b_light ~ dnorm(0, 1), 
     b_geno[geno] ~ dnorm(0, 1),
     b_interaction[geno] ~ dnorm(0, 1),
-    b_expe[expe] ~ dnorm(0, 1),
-    b_pl[plate] ~ dnorm(0, 1),
+    b_expe[expe] ~ dnorm(0, sigma_exp),
+    b_pl[plate] ~ dnorm(0, sigma_pl),
+    sigma_exp ~ dexp(1),
+    sigma_pl ~ dexp(1),
     sigma ~ dexp(1)), data=d_hyp, chains=4, cores=4, log_lik = TRUE)
 save(m_hypo1, file = "/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m_hypo1.RData")
 #precis(m_hypo1, depth = 2)
@@ -212,8 +214,10 @@ m_hypo2 = ulam(
     b_light ~ dnorm(0, 1), 
     b_geno[geno] ~ dnorm(mu_geno, sigma_geno),
     b_interaction[geno] ~ dnorm(mu_inter, sigma_inter),
-    b_expe[expe] ~ dnorm(0, 1),
-    b_pl[plate] ~ dnorm(0, 1),
+    b_expe[expe] ~ dnorm(0, sigma_exp),
+    b_pl[plate] ~ dnorm(0, sigma_pl),
+    sigma_exp ~ dexp(1),
+    sigma_pl ~ dexp(1),
     mu_geno ~ dnorm(0, 1), 
     sigma_geno ~ dexp(1),
     mu_inter ~ dnorm(0, 1),
@@ -235,8 +239,10 @@ m_hypo3 = ulam(
     length ~ dnorm(mu_len, sigma),
     mu_len <- b_light*light + b_geno[geno] + b_interaction[geno]*light + b_expe[expe] + b_pl[plate],
     b_light ~ dnorm(0, 1), 
-    b_expe[expe] ~ dnorm(0, 1),
-    b_pl[plate] ~ dnorm(0, 1),
+    b_expe[expe] ~ dnorm(0, sigma_exp),
+    b_pl[plate] ~ dnorm(0, sigma_pl),
+    sigma_exp ~ dexp(1),
+    sigma_pl ~ dexp(1),
     c(b_geno, b_interaction)[geno] ~ multi_normal( c(muG,muI) , Rho , Sigma ),
     Rho ~ lkj_corr( 2 ),
     muG ~ dnorm(0, 1),
@@ -268,7 +274,7 @@ m_hypo4 = ulam(
     vector[2]:sigma_geno ~ dexp(1),
     cholesky_factor_corr[2]:L_Rho_geno ~ lkj_corr_cholesky(2),
     gq> matrix[2,2]: Rho_geno <<- multiply_lower_tri_self_transpose(L_Rho_geno)), data=d_hyp4, chains=4, cores=4, log_lik = TRUE)
-#precis(m_hypo4, depth = 3)
+precis(m_hypo4, depth = 3)
 #plot(m_hypo4, depth = 3)
 save(m_hypo4, file = "/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap14.3_m_hypo4.RData")
 ```
@@ -279,7 +285,7 @@ load("/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Chap
 
 Evaluate and compare the models.  Is there evidence of line, treatment, and line X treatment effects?  How does the magnitude of the experiment and plate effects compare to the line effects?      
 ```{r}
-compare(m_hypo1, m_hypo2, m_hypo3, m_hypo4)
+compare(m_hypo1, m_hypo3, m_hypo4)
 plot(m_hypo4, depth = 3)
 ```
 
