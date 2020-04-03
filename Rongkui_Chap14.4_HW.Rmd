@@ -5,6 +5,8 @@ date: "3/31/2020"
 output: html_document
 ---
 
+See textbook R code 12.34 (page 401)
+
 ### PDF3: somehow the code wouldn't run. 
 ```{r, eval = FALSE}
 library(rethinking)
