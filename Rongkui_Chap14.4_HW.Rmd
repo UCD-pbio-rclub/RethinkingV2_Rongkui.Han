@@ -4,8 +4,26 @@ author: "Rongkui Han"
 date: "3/31/2020"
 output: html_document
 ---
-
 ```{r}
+library(rethinking)
+
+```
+
+
+### 14M4
+```{r}
+
+```
+
+
+### PDF3
+```{r}
+data(bangladesh)
+b = bangladesh
+head(b)
+
+dat_b <- list( U = b$use.contraception , distr = as.factor(b$district), urban = b$urban , A = b$age.centered, C = b$living.children)
+
 m14pdf3 <- ulam(
   alist(
     U ~ dbinom(1, p),
@@ -18,7 +36,7 @@ m14pdf3 <- ulam(
     Rho2 ~ lkj_corr( 2 ),
     c(Sigmam Sigma2) ~ exponential( 1 )
   ), data=dat_b , chains=4 , cores=4, log_lik = TRUE )
-precis( m14pdf2.CA2 , depth=3 )
-plot(m14pdf2.CA2 , depth=3)
+precis( m14pdf3 , depth=3 )
+plot(m14pdf3 , depth=3)
 ```
 
