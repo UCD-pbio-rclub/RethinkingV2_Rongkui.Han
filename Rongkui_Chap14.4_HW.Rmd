@@ -18,25 +18,27 @@ library(rethinking)
 
 ### PDF3
 ```{r}
+library(rethinking)
 data(bangladesh)
 b = bangladesh
 head(b)
 
-dat_b <- list( U = b$use.contraception , distr = as.factor(b$district), urban = b$urban , A = b$age.centered, C = b$living.children)
+dat_b <- list( U = b$use.contraception , distr = as.factor(b$district), urban = b$urban , A = b$age.centered, C = b$living.children, alpha = rep(2, 3))
 
 m14pdf3 <- ulam(
   alist(
     U ~ dbinom(1, p),
-    logit(p) <- a_dist[distr] + b_urban[distr]*urban + b_Child*C + b_Age*A ,
+    logit(p) <- a_dist[distr] + b_urban[distr]*urban + b_Child*sum(delta_shell[1:C]) + b_Age*A ,
     c(a_dist, b_urban)[distr] ~ multi_normal( c(mean_A,mean_bu) , Rho , Sigma ),
-    c(mean_A,mean_bu) ~ normal(0,1)
-    c(b_Child, b_Age) ~ multi_normal( c(mean_bc,mean_ba) , Rho2 , Sigma2 ),
-    c(mean_bc, mean_bu) ~ normal( 0 , 1),
+    c(mean_A, mean_bu, b_Child, b_Age) ~ normal(0,1),
     Rho ~ lkj_corr( 2 ),
-    Rho2 ~ lkj_corr( 2 ),
-    c(Sigmam Sigma2) ~ exponential( 1 )
+    Sigmam ~ exponential( 1 ),
+    vector[4]:delta_shell <<- append_row(0, delta),
+    simplex[3]: delta ~ dirichlet(alpha)
   ), data=dat_b , chains=4 , cores=4, log_lik = TRUE )
 precis( m14pdf3 , depth=3 )
 plot(m14pdf3 , depth=3)
+
+pheno_q ~ dordlogit( phi , kappa ),
 ```
 
