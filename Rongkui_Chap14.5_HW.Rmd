@@ -1,0 +1,85 @@
+---
+title: "Rongkui_Chap14.5_Hw"
+author: "Rongkui Han"
+date: "6/21/2020"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+Q14M4
+```{r}
+library(rethinking)
+```
+
+Gaussian process model
+```{r}
+data(Kline2) # load the ordinary data, now with coordinates
+d <- Kline2
+data(islandsDistMatrix)
+d$society <- 1:10 # index observations
+
+dat_list <- list(
+  T = d$total_tools,
+  P = d$population,
+  society = d$society,
+  Dmat=islandsDistMatrix )
+  
+m14.7 <- ulam(
+  alist(
+  T ~ dpois(lambda),
+  lambda <- (a*P^b/g)*exp(k[society]),
+  vector[10]:k ~ multi_normal( 0 , SIGMA ),
+  matrix[10,10]:SIGMA <- cov_GPL2( Dmat , etasq , rhosq , 0.01 ),
+  c(a,b,g) ~ dexp( 1 ),
+  etasq ~ dexp( 2 ),
+  rhosq ~ dexp( 0.5 )
+  ), data=dat_list , chains=4 , cores=4 , iter=2000, log_lik = TRUE )
+
+
+```
+
+NON-centered Gaussian process model
+```{r}
+m14.7nc <- ulam( 
+  alist(
+  T ~ dpois(lambda),
+  lambda <- (a*P^b/g)*exp(k[society]),
+# non-centered Gaussian Process prior
+  transpars> vector[10]: k <<- L_SIGMA * z,
+  vector[10]: z ~ normal( 0 , 1 ),
+  transpars> matrix[10,10]: L_SIGMA <<- cholesky_decompose( SIGMA ),
+  transpars> matrix[10,10]: SIGMA <- cov_GPL2( Dmat , etasq , rhosq , 0.01 ),
+  c(a,b,g) ~ dexp( 1 ),
+  etasq ~ dexp( 2 ),
+  rhosq ~ dexp( 0.5 )
+  ), data=dat_list , chains=4 , cores=4 , iter=2000, log_lik = TRUE)
+```
+
+
+
+Poisson GLM moodel
+```{r}
+d$P <- scale( log(d$population) ) 
+d$contact_id <- ifelse( d$contact=="high" , 2 , 1 )
+
+dat2 <- list(
+  T = d$total_tools ,
+  P = d$P ,
+  cid = d$contact_id )
+
+m11.10 <- ulam(
+  alist(
+  T ~ dpois( lambda ),
+  log(lambda) <- a[cid] + b[cid]*P,
+  a[cid] ~ dnorm( 3 , 0.5 ),
+  b[cid] ~ dnorm( 0 , 0.2 )
+  ), data=dat2 , chains=4, iter=2000, log_lik=TRUE )
+
+```
+
+```{r}
+compare(m14.7, m14.7nc, m11.10)
+```
+
+> The gaussian process model is much better than the poisson GLM model. It has fewer effective parameters, a lower WAIC and a smaller standard error. The centered and non-centered model are essentially the same. 
