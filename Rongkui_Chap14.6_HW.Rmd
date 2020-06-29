@@ -63,12 +63,13 @@ plot( Dmat , V , xlab="phylogenetic distance" , ylab="covariance" )
 
 > Linear
 
+#### linear phylogenetic
 ```{r}
 # put species in right order
 dat_list$V <- V[ spp_obs , spp_obs ]
 # convert to correlation matrix
 dat_list$R <- dat_list$V / max(V)
-# Brownian motion model
+
 m14M5_2 <- ulam(
   alist(
     G ~ multi_normal( mu , SIGMA ),
@@ -78,10 +79,33 @@ m14M5_2 <- ulam(
     c(bM,bB) ~ normal( 0 , 0.5 ),
     sigma_sq ~ exponential( 1 )
   ), data=dat_list , chains=4 , cores=4 )
-precis( m14M5_2 )
+
+precis( m14M5_2)
+
 ```
 
-> Stronger positive correlation with body size, nearly non brain size effect. 
+
+#### OU method
+
+```{r}
+
+# Brownian motion model
+dat_list$Dmat <- Dmat[ spp_obs , spp_obs ] / max(Dmat)
+
+m14M5_2OU <- ulam(
+  alist(
+    G ~ multi_normal( mu , SIGMA ),
+    mu <- a + bM*M + bB*B,
+    matrix[N_spp,N_spp]: SIGMA <- cov_GPL1( Dmat , etasq , rhosq , 0.01 ),
+    a ~ normal(0,1),
+    c(bM,bB) ~ normal(0,0.5),
+    etasq ~ half_normal(1,0.25),
+    rhosq ~ half_normal(3,0.25)
+  ), data=dat_list , chains=4 , cores=4)
+precis( m14M5_2OU )
+```
+
+
 
 
 ## 14H2
