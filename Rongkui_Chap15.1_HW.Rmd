@@ -1,0 +1,263 @@
+---
+title: "Rongkui_Chap15.1_HW"
+author: "Rongkui Han"
+date: "7/12/2020"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+### 15E1
+
+Rewrite the Oceanic tools model (from Chapter 11) below so that it assumes measured error on the log populationn sizes of each society.
+
+$$
+T_i \sim Poisson(\mu_i) \\
+log \mu_i = \alpha + \beta logP_i \\
+\alpha \sim Normal(0,10) \\
+\beta \sim Normal(0,1)
+$$
+
+> Answer:   
+
+$$
+T_i \sim Poisson(\mu_i) \\
+log \mu_i = \alpha + \beta logP_{TRUE,i} \\
+P_{OBS,i} \sim Normal(P_{TRUE,i}, P_{SE,i} )\\
+P_{TRUE,i} \sim Normal (\bar P, s^2_P) \\
+\alpha \sim Normal(0,10) \\
+\beta \sim Normal(0,1)
+$$
+
+
+### 15E2
+
+Rewrite the same model so that it allows imputation of missing values for log population.
+There aren’t any missing values in the variable, but you can still write down a model formula that would imply imputation, if any values were missing.     
+
+$$
+T_i \sim Poisson(\mu_i) \\
+log \mu_i = \alpha + \beta logP_i \\
+P_i \sim Normal (\nu, \sigma_P) \\
+\alpha \sim Normal(0,10) \\
+\beta \sim Normal(0,1) \\
+\nu \sim Normal(\bar P, s^2_P)\\
+\sigma_P \sim Exponential(1)
+$$
+
+### 15M2
+
+In earlier chapters, we threw away cases from the primate milk data, so we could use the
+neocortex variable. Now repeat the WAIC model comparison example from Chapter 6, but use imputation on the neocortex variable so that you can include all of the cases in the original data. The simplest form of imputation is acceptable. How are the model comparison results affected by being able to include all of the cases?
+
+#### Old model: 
+```{r}
+library(rethinking)
+data(milk)
+d <- milk
+d$neocortex.prop <- d$neocortex.perc / 100
+d$logmass <- log(d$mass)
+
+dat_list <- list( 
+  K = standardize( d$kcal.per.g ),
+  B = standardize( d$neocortex.prop ),
+  M = standardize( d$logmass )
+)
+
+dat_complete = list(
+  K = dat_list$K[complete.cases(dat_list$K,dat_list$B,dat_list$M)],
+  B = dat_list$B[complete.cases(dat_list$K,dat_list$B,dat_list$M)],
+  M = dat_list$M[complete.cases(dat_list$K,dat_list$B,dat_list$M)]
+)
+
+m5.5 <- ulam(
+  alist(
+    K ~ dnorm( mu , sigma ) ,
+    mu <- a + bB*B + bM*M ,
+    a ~ dnorm( 0 , 0.2 ) ,
+    bB ~ dnorm( 0 , 0.5 ) ,
+    bM ~ dnorm( 0 , 0.5 ) ,
+    sigma ~ dexp( 1 )
+  ) , data=dat_complete, chains=4 , cores=4 , log_lik = TRUE )
+```
+
+```{r}
+plot(precis(m5.5))
+```
+
+
+#### New model: 
+```{r}
+m15.3 <- ulam(
+  alist(
+    K ~ dnorm( mu , sigma ),
+    mu <- a + bB*B + bM*M,
+    B ~ dnorm( nu , sigma_B ),
+    c(a,nu) ~ dnorm( 0 , 0.5 ),
+    c(bB,bM) ~ dnorm( 0, 0.5 ),
+    sigma_B ~ dexp( 1 ),
+    sigma ~ dexp( 1 )
+  ) , data=dat_list , chains=4 , cores=4 , log_lik = TRUE)
+```
+
+```{r}
+plot(precis(m15.3))
+```
+
+
+```{r}
+compare(m5.5, m15.3)
+```
+
+> The old model was preferred......
+
+### 15M3
+
+#### Old model
+
+```{r}
+data(WaffleDivorce)
+d <- WaffleDivorce
+
+dlist <- list(
+  D_obs = standardize( d$Divorce ),
+  D_sd = d$Divorce.SE / sd( d$Divorce ),
+  M_obs = standardize( d$Marriage ),
+  M_sd = d$Marriage.SE / sd( d$Marriage ),
+  A = standardize( d$MedianAgeMarriage ),
+  N = nrow(d)
+)
+m15.2 <- ulam(
+  alist(
+    D_obs ~ dnorm( D_est , D_sd ),
+    vector[N]:D_est ~ dnorm( mu , sigma ),
+    mu <- a + bA*A + bM*M_est[i],
+    M_obs ~ dnorm( M_est , M_sd ),
+    vector[N]:M_est ~ dnorm( 0 , 1 ),
+    a ~ dnorm(0,0.2),
+    bA ~ dnorm(0,0.5),
+    bM ~ dnorm(0,0.5),
+    sigma ~ dexp( 1 )
+  ) , data=dlist , chains=4 , cores=4, log_lik = TRUE )
+plot(precis(m15.2))
+```
+
+#### New model with 2x SE
+```{r}
+dlist2 <- list(
+  D_obs = standardize( d$Divorce ),
+  D_sd = d$Divorce.SE / sd( d$Divorce ) * 2,
+  M_obs = standardize( d$Marriage ),
+  M_sd = d$Marriage.SE / sd( d$Marriage ) * 2,
+  A = standardize( d$MedianAgeMarriage ),
+  N = nrow(d)
+)
+m15.2_largeSE <- ulam(
+  alist(
+    D_obs ~ dnorm( D_est , D_sd ),
+    vector[N]:D_est ~ dnorm( mu , sigma ),
+    mu <- a + bA*A + bM*M_est[i],
+    M_obs ~ dnorm( M_est , M_sd ),
+    vector[N]:M_est ~ dnorm( 0 , 1 ),
+    a ~ dnorm(0,0.2),
+    bA ~ dnorm(0,0.5),
+    bM ~ dnorm(0,0.5),
+    sigma ~ dexp( 1 )
+  ) , data=dlist2 , chains=4 , cores=4, log_lik = TRUE  )
+plot(precis(m15.2_largeSE))
+```
+
+
+```{r}
+compare(m15.2, m15.2_largeSE)
+```
+
+> The larger SE model is better.
+
+### 15H1
+
+The data in `data(elephants)` are counts of matings observed for bull elephants of differing ages. There is a strong positive relationship between age and matings. However, age is not always assessed accurately. First, fit a Poisson model predicting `MATINGS` with `AGE` as a predictor. Second, assume that the observed `AGE` values are uncertain and have a standard error of±5 years. Re-estimate the relationship between `MATINGS` and `AGE`, incorporating this measurement error. Compare the inferences of the two models.
+
+#### First model
+```{r}
+data("elephants")
+ele = list(
+  A_obs = standardize(elephants$AGE),
+  M = elephants$MATINGS
+)
+m15h1_1 <- ulam(
+  alist(
+    M ~ dpois(mu),
+    mu <- intercept + bA*A_obs,
+    intercept ~ dexp(1),
+    bA ~ dnorm(0,1)
+  ), data = ele, chains = 4, cores = 4)
+precis(m15h1_1)
+```
+
+```{r}
+plot(precis(m15h1_1))
+```
+
+### Second model
+
+```{r}
+ele$N = nrow(elephants)
+m15h1_2 <- ulam(
+  alist(
+    M ~ dpois(mu),
+    mu <- intercept + bA*A_tru[i],
+    A_obs ~ dnorm(A_tru, 5),
+    vector[N]:A_tru ~ dnorm(0, 0.2),
+    intercept ~ dexp(1),
+    bA ~ dnorm(0,1)
+  ), data = ele, chains = 4, cores = 4)
+precis(m15h1_2)
+```
+
+> The effect of age disappeared...?
+
+### 15H2
+
+Repeat the model fitting problem above, now increasing the assumed standard error on `AGE`. How large does the standard error have to get before the posterior mean for the coefficient on `AGE` reaches zero?
+
+> I feel like 5 was already high enough... Will try a few other numbers.
+
+```{r}
+m15h2_1 <- ulam(
+  alist(
+    M ~ dpois(mu),
+    mu <- intercept + bA*A_tru[i],
+    A_obs ~ dnorm(A_tru, 2),
+    vector[N]:A_tru ~ dnorm(0, 0.2),
+    intercept ~ dexp(1),
+    bA ~ dnorm(0,1)
+  ), data = ele, chains = 4, cores = 4)
+precis(m15h2_1)
+```
+
+```{r}
+m15h2_2 <- ulam(
+  alist(
+    M ~ dpois(mu),
+    mu <- intercept + bA*A_tru[i],
+    A_obs ~ dnorm(A_tru, 10),
+    vector[N]:A_tru ~ dnorm(0, 0.2),
+    intercept ~ dexp(1),
+    bA ~ dnorm(0,1)
+  ), data = ele, chains = 4, cores = 4)
+precis(m15h2_2)
+```
+
+```{r}
+m15h2_3 <- ulam(
+  alist(
+    M ~ dpois(mu),
+    mu <- intercept + bA*A_tru[i],
+    A_obs ~ dnorm(A_tru, 20),
+    vector[N]:A_tru ~ dnorm(0, 0.2),
+    intercept ~ dexp(1),
+    bA ~ dnorm(0,1)
+  ), data = ele, chains = 4, cores = 4)
+precis(m15h2_3)
+```
