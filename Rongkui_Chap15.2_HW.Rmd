@@ -1,0 +1,126 @@
+---
+title: "Rongkui_Chap15.2_HW"
+author: "Rongkui Han"
+date: "7/19/2020"
+output: 
+  html_document: 
+    keep_md: yes
+---
+
+## Question 1
+
+```{r}
+library(rethinking)
+data(Primates301)
+d = Primates301
+cc = complete.cases(d$brain, d$body)
+
+B = d$brain[cc]
+M = d$body[cc]
+B = B/max(B)
+M = M/max(M)
+Bse = B*0.1
+Mse = M*0.1
+```
+
+```{r}
+dat_list = list(B = B, M = M)
+m1.1 <- ulam(
+  alist(
+    B ~ dlnorm(mu, sigma),
+    mu <- a + b*log(M),
+    c(a,b) ~ normal(0,1),
+    sigma ~ exponential(1)
+  ), data = dat_list, cores = 4, chains = 4, log_lik = TRUE
+)
+plot(precis(m1.1))
+```
+
+```{r}
+dat_list2 = list(B = B, M = M, Bse = Bse, Mse = Mse, N = length(B))
+m1.2 <- ulam(
+  alist(
+    B ~ dnorm( B_est, Bse),
+    vector[N]:B_est ~ dlnorm(mu, sigma),
+    mu <- a + b*log(M_est[i]),
+    M ~ dnorm(M_est, Mse),
+    vector[N]:M_est ~ dexp(5),
+    c(a,b) ~ normal(0,1),
+    sigma ~ exponential(1)
+  ), data = dat_list2, cores = 4, chains = 4, log_lik = TRUE
+)
+plot(precis(m1.2, deepth = 1))
+```
+
+```{r}
+compare(m1.1, m1.2)
+```
+
+
+## Question 2
+
+```{r}
+cc = complete.cases(d$body)
+M = d$body[cc]
+M = M/max(M)
+B = d$brain[cc]
+B = B/max(B, na.rm = TRUE)
+library(ggplot2)
+plot_missing = data.frame(M = M, B = B, B_missing = ifelse(is.na(B), "missing", "not missing"))
+ggplot(plot_missing, aes(x = M) ) +
+  geom_histogram(aes(fill = B_missing), bins = 20)
+```
+
+```{r}
+ggplot(plot_missing, aes(x = M) ) +
+  geom_density(aes(color = B_missing))
+```
+
+> Maybe missing value enriched with smaller M...? That would make this a MAR scenario:
+
+```{r}
+library(dagitty)
+library(ggdag)
+g = dagitty('dag{
+  M [pos = "0,1"]
+  U [pos = "1,1"]
+  B [pos = "2,1"]
+  R_B [pos = "1,0"]
+  B_obs [pos = "2,0"]
+  K [pos = "1,2"]
+
+  M <- U -> B
+  M -> K <- B
+  M -> R_B -> B_obs <- B
+            }')
+plot(g)
+```
+
+> Imputation:  
+
+```{r}
+plot_missing$B[is.na(plot_missing$B)] = 0.5
+ggplot(plot_missing, aes(x = B, y = M)) +
+  geom_jitter(aes(color = B_missing))
+```
+
+> I really am not sure if I personally would use this imputation... I would probably just drop the missing values. 
+
+```{r}
+imp_dat = list(M = plot_missing$M, B = plot_missing$B)
+m2.1 <- ulam(
+  alist(
+    B ~ dlnorm(mu, sigma),
+    mu <- a + b*log(M),
+    c(a,b) ~ normal(0,1),
+    sigma ~ exponential(1)
+  ), data = imp_dat, cores = 4, chains = 4, log_lik = TRUE
+)
+plot(precis(m2.1))
+```
+
+```{r}
+compare(m1.1, m2.1)
+```
+
+> The original model is better. 

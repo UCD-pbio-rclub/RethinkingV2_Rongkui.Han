@@ -185,6 +185,8 @@ ele = list(
   A_obs = standardize(elephants$AGE),
   M = elephants$MATINGS
 )
+sd = sd(elephants$AGE)
+5/sd
 m15h1_1 <- ulam(
   alist(
     M ~ dpois(mu),
@@ -207,7 +209,7 @@ m15h1_2 <- ulam(
   alist(
     M ~ dpois(mu),
     mu <- intercept + bA*A_tru[i],
-    A_obs ~ dnorm(A_tru, 5),
+    A_obs ~ dnorm(A_tru, 0.76),
     vector[N]:A_tru ~ dnorm(0, 0.2),
     intercept ~ dexp(1),
     bA ~ dnorm(0,1)
