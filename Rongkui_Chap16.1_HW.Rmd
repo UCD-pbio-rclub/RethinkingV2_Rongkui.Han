@@ -1,0 +1,68 @@
+---
+title: "Rongkui_Chap16.1_HW"
+author: "Rongkui Han"
+date: "8/3/2020"
+output: html_document
+---
+
+### 16M1. 
+
+Modify the cylinder height model, m16.1, so that the exponent 3 on height is instead a free
+parameter. Do you recover the value of 3 or not? Plot the posterior predictions for the new model.
+How do they differ from those of m16.1?     
+
+```{r}
+library(rethinking) 
+data(Howell1)
+d <- Howell1
+# scale observed variables
+d$w <- d$weight / mean(d$weight)
+d$h <- d$height / mean(d$height)
+```
+
+```{r, eval = FALSE}
+m16.1 <- ulam( 
+  alist(
+    w ~ dlnorm( mu , sigma ),
+    exp(mu) <- 3.141593 * k * p^2 * h^3,
+    p ~ beta( 2 , 18 ),
+    k ~ exponential( 0.5 ),
+    sigma ~ exponential( 1 )
+  ), data=d , chains=4 , cores=4 )
+
+```
+
+```{r, eval = FALSE}
+m16.1_new <- ulam( 
+  alist(
+    w ~ dlnorm( mu , sigma ),
+    exp(mu) <- 3.141593 * k * p^2 * h^exponent,
+    p ~ beta( 2 , 18 ),
+    k ~ exponential( 0.5 ),
+    exponent ~ exponential( 0.5 ),
+    sigma ~ exponential( 1 )
+  ), data=d , chains=4 , cores=4 )
+precis(m16.1_new)
+```
+
+
+###16M2. 
+
+Conduct a prior predictive simulation for the cylinder height model. Begin with the priors
+in the chapter. Do these produce reasonable prior height distributions? If not, which modifications
+do you suggest?    
+```{r}
+N <- 1e4
+p <- rbeta( N , 2 , 18 )
+k <- rexp( N , 0.5 )
+
+plot( NULL , xlim=c(0,1.5) , ylim=c(0,1) , xaxt="n" , xlab="h",ylab="w" )
+at = c(0,0.25,0.5,0.75,1,1.25,1.5)
+axis( 1 , at=at , labels=round(at*max(d$h), digit = 2) )
+for ( i in 1:20 ) curve( (3.141593 * k[i] * p[i]^2 * x^3) , add=TRUE , col=grau() , lwd=1.5 )
+```
+
+```{r}
+
+```
+

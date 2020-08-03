@@ -47,7 +47,7 @@ m1.2 <- ulam(
     vector[N]:M_est ~ dexp(5),
     c(a,b) ~ normal(0,1),
     sigma ~ exponential(1)
-  ), data = dat_list2, cores = 4, chains = 4, log_lik = TRUE
+  ), data = dat_list2, start = list(M_est = dat_list2$M, B_est = dat_list2$B), cores = 4, chains = 4, log_lik = TRUE
 )
 plot(precis(m1.2, deepth = 1))
 ```
@@ -107,14 +107,17 @@ ggplot(plot_missing, aes(x = B, y = M)) +
 > I really am not sure if I personally would use this imputation... I would probably just drop the missing values. 
 
 ```{r}
-imp_dat = list(M = plot_missing$M, B = plot_missing$B)
+
+imp_dat = list(M = M, B = B)
+
 m2.1 <- ulam(
   alist(
-    B ~ dlnorm(mu, sigma),
+    B_merge ~ dlnorm(mu, sigma),
     mu <- a + b*log(M),
     c(a,b) ~ normal(0,1),
+    B_merge <- merge_missing(N, B_impute),
     sigma ~ exponential(1)
-  ), data = imp_dat, cores = 4, chains = 4, log_lik = TRUE
+  ), data = imp_dat, start=list( B_impute=rep(0.5,56) ), cores = 4, chains = 4, log_lik = TRUE
 )
 plot(precis(m2.1))
 ```
