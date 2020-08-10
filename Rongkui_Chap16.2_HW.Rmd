@@ -1,0 +1,210 @@
+---
+title: "Rongkui_Chap16.2_HW"
+author: "Rongkui Han"
+date: "8/9/2020"
+output: html_document
+---
+
+### 16M3. 
+Use prior predictive simulations to investigate the Lynx-hare model. Begin with the priors in the chapter. Which population dynamics do these produce? Can you suggest any improvements to the priors, on the basis of your simulations?
+
+```{r}
+library(rethinking)
+data(Lynx_Hare)
+data(Lynx_Hare_model) 
+```
+
+```{r}
+sim_lynx_hare <- function( n_steps , init , theta , dt=0.002 ) {
+  L <- rep(NA,n_steps)
+  H <- rep(NA,n_steps)
+  L[1] <- init[1]
+  H[1] <- init[2]
+  for ( i in 2:n_steps ) {
+  H[i] <- H[i-1] + dt*H[i-1]*( theta[1] - theta[2]*L[i-1] )
+  L[i] <- L[i-1] + dt*L[i-1]*( theta[3]*H[i-1] - theta[4] )
+  }
+  return( cbind(L,H) )
+}
+```
+
+> Theta[1]: birth rate hare
+  Theta[2]: death rate hare
+  Theta[3]: birth rate lynx
+  Theta[4]: death rate lynx
+  init[1]: L[1]
+  init[2]: H[1]
+  
+```{r}
+z_list = list()
+for (i in 1:20) {
+  z = log(as.matrix(sim_lynx_hare(1e2, init = c(rlnorm(1, log(10), 1), rlnorm(1, log(10), 1)), theta = c(abs(rnorm(1, 0.7, 0.5)),abs(rnorm(1, 0.05, 0.05)),abs(rnorm(1, 0.05, 0.05)),abs(rnorm(1, 1, 0.5))))) %*% diag(rbeta(2, 2, 18)))
+  z[,1] = rlnorm(z[,1], rexp(1,1))
+  z[,2] = rlnorm(z[,2], rexp(1,1))
+  z_list[[i]] = z
+}
+```
+
+```{r}
+plot( z_list[[1]][,2], type="l" , ylim=c(0,200) , lwd=2 , xaxt="n" ,
+  ylab="number (thousands)" , xlab="" )
+for (i in 1:20) {
+  lines( z_list[[i]][,2] , lwd = 2)
+  lines( z_list[[i]][,1] , col=rangi2 , lwd=2 )
+}
+mtext( "time" , 1 )
+```
+
+> Quite noisy. But the range of numbers are reasonable. Maybe reduce variance of the log-normal distribution of the sampling process?
+
+  
+```{r}
+z_list = list()
+for (i in 1:20) {
+  z = log(as.matrix(sim_lynx_hare(1e2, init = c(rlnorm(1, log(10), 1), rlnorm(1, log(10), 1)), theta = c(abs(rnorm(1, 0.7, 0.5)),abs(rnorm(1, 0.05, 0.05)),abs(rnorm(1, 0.05, 0.05)),abs(rnorm(1, 1, 0.5))))) %*% diag(rbeta(2, 2, 18)))
+  z[,1] = rlnorm(z[,1], rexp(1,2))
+  z[,2] = rlnorm(z[,2], rexp(1,2))
+  z_list[[i]] = z
+}
+```
+
+```{r}
+plot( z_list[[1]][,2], type="l" , ylim=c(0,100) , lwd=2 , xaxt="n" ,
+  ylab="number (thousands)" , xlab="" )
+for (i in 1:20) {
+  lines( z_list[[i]][,2] , lwd = 2)
+  lines( z_list[[i]][,1] , col=rangi2 , lwd=2 )
+}
+mtext( "time" , 1 )
+```
+
+### 16H1.
+
+Modify the Panda nut opening model so that male and female chimpanzees have different
+maximum adult body mass. The sex variable in data(Panda_nuts) provides the information you need. Be sure to incorporate the fact that you know, prior to seeing the data, that males are on average larger than females at maturity.    
+```{r}
+data("Panda_nuts")
+dat_list <- list( 
+  n = as.integer( Panda_nuts$nuts_opened ),
+  age = Panda_nuts$age / max(Panda_nuts$age),
+  seconds = Panda_nuts$seconds, 
+  sex = ifelse(Panda_nuts$sex == 'f', 0, 1))
+
+m16.4 <- ulam(
+  alist(
+    n ~ poisson( lambda ),
+    lambda <- seconds*phi*(1-exp(-k*age))^theta,
+    phi ~ lognormal( log(1) , 0.1 ),
+    k ~ lognormal( log(2) , 0.25 ),
+    theta ~ lognormal( log(5) , 0.25 )
+  ), data=dat_list , chains=4 )
+plot(precis(m16.4))
+```
+
+```{r}
+m16.4_new <- ulam(
+  alist(
+    n ~ poisson( lambda ),
+    lambda <- seconds*phi*(1-exp(-k*age)*exp(sex * b_sex))^theta,
+    phi ~ lognormal( log(1) , 0.1 ),
+    b_sex ~ normal(0, 0.5),
+    k ~ lognormal( log(2) , 0.25 ),
+    theta ~ lognormal( log(5) , 0.25 )
+  ), data=dat_list , chains=4 )
+plot(precis(m16.4_new))
+```
+
+> Negative??
+
+### 16H2. 
+
+Now return to the Panda nut model and try to incorporate individual differences. There are two parameters, $\phi$ and k, which plausibly vary by individual. Pick one of these, allow it to vary by individual, and use partial pooling to avoid overfitting. The variable chimpanzee in data(Panda_nuts) tells you which observations belong to which individuals.
+
+```{r}
+dat_list <- list( 
+  n = as.integer( Panda_nuts$nuts_opened ),
+  age = Panda_nuts$age / max(Panda_nuts$age),
+  seconds = Panda_nuts$seconds, 
+  sex = ifelse(Panda_nuts$sex == 'f', 0, 1),
+  indiv = Panda_nuts$chimpanzee)
+
+m16.4_H2 <- ulam(
+  alist(
+    n ~ poisson( lambda ),
+    lambda <- seconds*phi[indiv]*(1-exp(-k[indiv]*age)*exp(sex * b_sex))^theta,
+    phi[indiv] ~ lognormal( log(1) , 0.1 ),
+    b_sex ~ normal(0, 0.5),
+    k[indiv] ~ lognormal( log(2) , 0.25 ),
+    theta ~ lognormal( log(5) , 0.25 )
+  ), data=dat_list , chains=4 )
+plot(precis(m16.4_H2, depth = 2))
+```
+
+
+### 16H3. 
+The chapter asserts that a typical, geocentric time series model might be one that uses lag variables. Here you’ll fit such a model and compare it to ODE model in the chapter. An autoregressive time series uses earlier values of the state variables to predict new values of the same variables. These earlier values are called lag variables. You can construct the lag variables here with:
+```{r}
+data(Lynx_Hare) 
+dat_ar1 <- list(
+  L = Lynx_Hare$Lynx[2:21],
+  L_lag1 = Lynx_Hare$Lynx[1:20],
+  H = Lynx_Hare$Hare[2:21],
+  H_lag1 = Lynx_Hare$Hare[1:20] )
+```
+
+Now you can use `L_lag1` and `H_lag1` as predictors of the outcomes L and H. Like this:
+$$
+L_t ∼ Log-Normal(log \mu_L,t, \sigma_L) \\
+\mu_{L,t} = \alpha_L + \beta_{LL}L_{t−1} + \beta_{LH}H_{t−1} \\
+H_t ∼ Log-Normal(log \mu_{H,t}, \sigma_H) \\
+\mu_{H,t} = \alpha_H + \beta_{HH}H_{t−1} + \beta_{HL}L_{t−1}
+$$
+where $L_{t−1}$ and $H_{t−1}$ are the lag variables. Use `ulam()` to fit this model. Be careful of the priors of the $\alpha$ and $\beta$ parameters. Compare the posterior predictions of the autoregressive model to the ODE model in the chapter. How do the predictions differ? Can you explain why, using the structures of the models?
+
+> ODE: 
+
+```{r}
+dat_list <- list(
+  N = nrow(Lynx_Hare),
+  pelts = Lynx_Hare[,2:3] )
+m16.5 <- stan( model_code=Lynx_Hare_model , data=dat_list , chains=3 , cores=3 ,
+control=list( adapt_delta=0.95 ) )
+precis(m16.5)
+```
+
+```{r}
+post <- extract.samples(m16.5)
+pelts <- dat_list$pelts
+plot( 1:21 , pelts[,2] , pch=16 , ylim=c(0,120) , xlab="year" ,
+ylab="thousands of pelts" , xaxt="n" )
+at <- c(1,11,21)
+axis( 1 , at=at , labels=Lynx_Hare$Year[at] )
+points( 1:21 , pelts[,1] , col=rangi2 , pch=16 )
+# 21 time series from posterior
+for ( s in 1:21 ) {
+lines( 1:21 , post$pelts_pred[s,,2] , col=col.alpha("black",0.2) , lwd=2 )
+lines( 1:21 , post$pelts_pred[s,,1] , col=col.alpha(rangi2,0.3) , lwd=2 )
+}
+# text labels
+text( 17 , 90 , "Lepus" , pos=2 )
+text( 19 , 50 , "Lynx" , pos=2 , col=rangi2 )
+```
+
+
+> Auto-regression:
+
+```{r}
+m16H3 <- ulam(
+  alist(
+    Lt ~ lognormal(log(mu_Lt), sigma_L),
+    mu_Lt <- a_L + b_LL * L_lag1 + b_LH * H_lag1,
+    Ht ~ lognormal(log(mu_Ht), sigma_H),
+    mu_Ht <- a_H + b_HH * H_lag1 + b_HL * L_lag1,
+    c(sigma_L, sigma_H) ~ exponential(5),
+    c(a_L, a_H) ~ normal(10, 2),
+    c(b_LL, b_LH, b_HH, b_HL) ~ normal(0, 0.1)
+  ), data=dat_ar1 , chains=4, cores = 1)
+precis(m16H3)
+```
+
+> Can't even find priors to make it work. 
