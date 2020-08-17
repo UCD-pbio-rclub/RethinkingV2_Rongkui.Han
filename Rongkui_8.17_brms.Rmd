@@ -237,15 +237,23 @@ plot(precis(mSol_ulam, depth= 2))
 ```{r}
 d5 = list(
   hyp = scale(tomato$hyp),
-  trt = as.numeric(tomato$trt),
-  spe = as.numeric(tomato$species),
-  inter = as.numeric(as.factor(paste(as.numeric(tomato$species), as.numeric(tomato$trt), sep = "_")))
+  trt = tomato$trt,
+  spe = tomato$species,
+  inter = as.factor(paste(as.numeric(tomato$species), as.numeric(tomato$trt), sep = "_"))
 )
 
 get_prior(hyp ~ trt + spe + trt:spe, data=d5)
 mSol_brms <- brm(hyp ~ trt + spe + trt:spe, data=d5,
                prior=c(
-                 set_prior("normal(0,1)", class = "b", coef = "trt"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
                  set_prior("normal(0,1)", class = "b", coef = "spe"),
                  set_prior("normal(0,1)", class = "b", coef = "trt:spe"),
                  set_prior("normal(0,1)", class = "Intercept"),
