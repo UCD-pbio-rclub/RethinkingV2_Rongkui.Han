@@ -61,7 +61,7 @@ mtext( "time" , 1 )
 ```{r}
 z_list = list()
 for (i in 1:20) {
-  z = log(as.matrix(sim_lynx_hare(1e2, init = c(rlnorm(1, log(10), 1), rlnorm(1, log(10), 1)), theta = c(abs(rnorm(1, 0.7, 0.5)),abs(rnorm(1, 0.05, 0.05)),abs(rnorm(1, 0.05, 0.05)),abs(rnorm(1, 1, 0.5))))) %*% diag(rbeta(2, 2, 18)))
+  z = log(as.matrix(sim_lynx_hare(1e4, init = c(rlnorm(1, log(10), 1), rlnorm(1, log(10), 1)), theta = c(abs(rnorm(1, 0.7, 0.5)),abs(rnorm(1, 0.05, 0.05)),abs(rnorm(1, 0.05, 0.05)),abs(rnorm(1, 1, 0.5))))) %*% diag(rbeta(2, 2, 18)))
   z[,1] = rlnorm(z[,1], rexp(1,2))
   z[,2] = rlnorm(z[,2], rexp(1,2))
   z_list[[i]] = z
@@ -97,7 +97,7 @@ m16.4 <- ulam(
     phi ~ lognormal( log(1) , 0.1 ),
     k ~ lognormal( log(2) , 0.25 ),
     theta ~ lognormal( log(5) , 0.25 )
-  ), data=dat_list , chains=4 )
+  ), data=dat_list , chains=4, log_lik = TRUE )
 plot(precis(m16.4))
 ```
 
@@ -110,11 +110,16 @@ m16.4_new <- ulam(
     b_sex ~ normal(0, 0.5),
     k ~ lognormal( log(2) , 0.25 ),
     theta ~ lognormal( log(5) , 0.25 )
-  ), data=dat_list , chains=4 )
+  ), data=dat_list , chains=4, log_lik = TRUE)
 plot(precis(m16.4_new))
 ```
 
 > Negative??
+
+```{r}
+compare(m16.4, m16.4_new)
+```
+
 
 ### 16H2. 
 
@@ -131,13 +136,17 @@ dat_list <- list(
 m16.4_H2 <- ulam(
   alist(
     n ~ poisson( lambda ),
-    lambda <- seconds*phi[indiv]*(1-exp(-k[indiv]*age)*exp(sex * b_sex))^theta,
+    lambda <- seconds*phi[indiv]*exp(sex * b_sex)*(1-exp(-k[indiv]*age))^theta,
     phi[indiv] ~ lognormal( log(1) , 0.1 ),
     b_sex ~ normal(0, 0.5),
     k[indiv] ~ lognormal( log(2) , 0.25 ),
     theta ~ lognormal( log(5) , 0.25 )
-  ), data=dat_list , chains=4 )
+  ), data=dat_list , chains=4 , log_lik = TRUE)
 plot(precis(m16.4_H2, depth = 2))
+```
+
+```{r}
+compare(m16.4, m16.4_new, m16.4_H2)
 ```
 
 

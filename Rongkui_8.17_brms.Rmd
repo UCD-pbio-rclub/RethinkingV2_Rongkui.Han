@@ -1,0 +1,256 @@
+---
+title: "Assignment8.17_BRMS"
+author: "Rongkui Han"
+date: "8/17/2020"
+output: html_document
+---
+
+```{r, warning=FALSE}
+library(rethinking)
+library(brms)
+library(tidyverse)
+```
+
+## A simple model from Chapter 4
+```{r}
+data("Howell1")
+d <- Howell1[Howell1$age>=18,] #match rethinking
+```
+
+### Intercept only model.  Let BRMS pick the priors.
+
+The "1" in the model formula stands for the intercept.
+```{r}
+m4.1brm <- brm(height~1, data=d)
+```
+
+Take a look at the fit, similar to precis(), just by typing the model name.  You can also use `summary(m4.1brm)` and get the same output
+```{r}
+m4.1brm
+```
+
+we can plot the posterior distributions and chains with:
+```{r}
+plot(m4.1brm)
+```
+### what priors were used?
+
+`prior_summary()` retrieves the priors from the model.
+```{r}
+prior_summary(m4.1brm)
+```
+
+### what priors could have been set? (can do this before fitting model)
+
+If you want to see your options before fitting a model, use `get_prior()`
+```{r}
+get_prior(height ~ 1, data=d)
+```
+
+### how is brms picking these priors?
+```{r}
+mean(d$height)
+sd(d$height) #?
+```
+Looks like it must be sampling the data
+
+### set your own priors:
+I am switching the prior for sigma from m4.1 in the book, because the uniform prior doesn't converge well.
+```{r}
+m4.1brm2 <- brm(height ~ 1, data = d,
+                prior=c(set_prior("normal(178, 20)", class="Intercept"),
+                        set_prior("exponential(1)", class="sigma")))
+```
+
+```{r}
+m4.1brm2
+```
+
+```{r}
+plot(m4.1brm2)
+```
+
+
+## Model 4.3
+
+Model 4.3 from the book adds weight as a predictor of height.  Let's start by seeing what prior we could set.
+```{r}
+get_prior(height ~ weight, data=d)
+```
+"b" priors are for the slopes.  we can either set for the whole class or specify particular coefficients. In this case since we only have one slope that is the same thing.  Note that no prior is listed!  I am not sure what it ends up using but I am pretty sure it is something inappropriate.  __b priors need to be set in brms__
+
+Note that we specify the distribution for the prior using STAN functions.  You can see what is available in the [STAN manual](https://mc-stan.org/docs/2_24/functions-reference/index.html) (See sections for discrete and continuous distributions)
+
+```{r}
+d2 <- d
+d2$weight <- d$weight - mean(d$weight)
+m4.3brm <- brm(height ~ weight, data=d2,
+               prior=c(
+                 set_prior("normal(178, 20)", class = "Intercept"),
+                 set_prior("lognormal(0,1)", class = "b",lb=0),
+                 set_prior("exponential(1)", class = "sigma"))
+               )
+```
+
+```{r}
+m4.3brm
+```
+
+```{r}
+plot(m4.3brm)
+```
+
+## Resources
+
+### brms help functions
+The brms help functions are *very* detailed and helpful:
+```{r}
+?brm
+?brmsformula
+?set_prior
+```
+
+### brms vignettes
+The vignettes may be a bit much too swallow at once but they can also be helpful.
+```{r}
+vignette(package="brms")
+```
+
+### online tutorial
+Rens Van de Schoot has a series of online tutorials that look quite accessible and helpful:
+
+[getting started](https://www.rensvandeschoot.com/tutorials/brms-started/)  
+[priors](https://www.rensvandeschoot.com/tutorials/brms-priors/)  
+[when to worry](https://www.rensvandeschoot.com/brms-wambs/)  
+[glm](https://www.rensvandeschoot.com/tutorials/generalised-linear-models-with-brms/)
+
+### brms and rethinking
+
+The second edition of rethinking has been [partially translated into brms] (https://bookdown.org/content/4857/)
+
+The first edition of rethinking has been [translated into brms](https://bookdown.org/connect/#/apps/1850/access)
+
+
+# Assignment
+
+Revisit the following homework problems and try to fit the with brms.  Make your first attempt without looking at the rethinking to brms translation, but if you get stuck definitely look!  Compare the coefficients or predictions that you obtain with brms and those with quap or ulam.
+
+* 4H1 (you probably need the function `posterior_predict()`)
+
+```{r}
+m4H1_ulam <- ulam(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b*weight,
+    a ~ dnorm(178, 20),
+    b ~ dlnorm(0, 1),
+    sigma ~ dexp(1)
+  ), data = d2, cores = 4, chains = 4)
+precis(m4H1_ulam )
+```
+
+```{r}
+post <- extract.samples(m4H1_ulam) 
+weight.seq <- c(46.95, 43.72, 64.78, 32.59, 54.63)
+height = sapply(weight.seq, function(x)
+  post$a + post$b * (x - mean(d$weight)))
+height_PI = apply(height, 2, PI, prob = 0.89)
+height_PI
+```
+
+```{r}
+predict(m4.3brm, newdata = data.frame(weight = weight.seq- mean(d$weight)) )
+```
+
+
+* 4H2. Select out all the rows in the Howell1 data with ages below 18 years of age. If you do it right, you should end up with a new data frame with 192 rows in it.       
+
+(a) Fit a linear regression to these data, using quap. Present and interpret the estimates. For
+every 10 units of increase in weight, how much taller does the model predict a child gets?   
+
+```{r}
+H_child = Howell1[Howell1$age<18,]
+d3 = list(
+  height = H_child$height,
+  weight = H_child$weight - mean(H_child$weight)
+)
+mean(d3$height)
+m4H2_ulam <- ulam(
+  alist(
+    height ~ dnorm(mu, sigma),
+    mu <- a + b*weight,
+    a ~ dnorm(128, 20),
+    b ~ dlnorm(0, 1),
+    sigma ~ dexp(1)
+  ), data = d3, cores = 4, chains = 4)
+precis(m4H2_ulam)
+```
+
+> b is much larger (2.72 vs 0.9). 
+
+```{r}
+m4H2_brms <- brm(height ~ weight, data=d3,
+               prior=c(
+                 set_prior("normal(128, 20)", class = "Intercept"),
+                 set_prior("lognormal(0,1)", class = "b",lb=0),
+                 set_prior("exponential(1)", class = "sigma"))
+               )
+m4H2_brms
+```
+ > Also 2.72!
+
+(b) Plot the raw data, with height on the vertical axis and weight on the horizontal axis. Superimpose
+the MAP regression line and 89% interval for the mean. Also superimpose the 89% interval
+for predicted heights.          
+
+
+(c) What aspects of the model fit concern you? Describe the kinds of assumptions you would
+change, if any, to improve the model. You don’t have to write any new code. Just explain what the
+model appears to be doing a bad job of, and what you hypothesize would be a better model.        
+
+* From chapter 8 I assigned a tomato problem from my data "Use the tomato.csv data set and evaluate whether hypocotyl length ("hyp") is affected by shade ("trt"), species ("species") and their interaction."
+
+```{r}
+tomato = read.csv("/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/Tomato.csv")
+```
+
+```{r}
+d4 = list(
+  hyp = scale(tomato$hyp),
+  trt = tomato$trt,
+  spe = tomato$species,
+  inter = as.factor(paste(tomato$species, tomato$trt, sep = "_"))
+)
+
+mSol_ulam <- ulam(
+  alist(
+    hyp ~ dnorm(mu, sigma),
+    mu <- b_t[trt] + b_s[spe] + b_i[inter],
+    sigma ~ dexp(1),
+    b_t[trt] ~ dnorm(0, 1),
+    b_s[spe] ~ dnorm(0, 1),
+    b_i[inter] ~ dnorm(0, 1)
+  ), data  = d4, cores = 4, chains = 4)
+plot(precis(mSol_ulam, depth= 2))
+```
+
+```{r}
+d5 = list(
+  hyp = scale(tomato$hyp),
+  trt = as.numeric(tomato$trt),
+  spe = as.numeric(tomato$species),
+  inter = as.numeric(as.factor(paste(as.numeric(tomato$species), as.numeric(tomato$trt), sep = "_")))
+)
+
+get_prior(hyp ~ trt + spe + trt:spe, data=d5)
+mSol_brms <- brm(hyp ~ trt + spe + trt:spe, data=d5,
+               prior=c(
+                 set_prior("normal(0,1)", class = "b", coef = "trt"),
+                 set_prior("normal(0,1)", class = "b", coef = "spe"),
+                 set_prior("normal(0,1)", class = "b", coef = "trt:spe"),
+                 set_prior("normal(0,1)", class = "Intercept"),
+                 set_prior("exponential(1)", class = "sigma"))
+               )
+plot(mSol_brms)
+```
+
