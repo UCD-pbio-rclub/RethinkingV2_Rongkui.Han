@@ -159,7 +159,7 @@ height_PI
 ```
 
 ```{r}
-predict(m4.3brm, newdata = data.frame(weight = weight.seq- mean(d$weight)) )
+predict(m4.3brm, newdata = data.frame(weight = weight.seq- mean(d$weight)), probs = c(0.05, 0.94))
 ```
 
 
@@ -217,19 +217,17 @@ tomato = read.csv("/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Ron
 ```{r}
 d4 = list(
   hyp = scale(tomato$hyp),
-  trt = tomato$trt,
-  spe = tomato$species,
-  inter = as.factor(paste(tomato$species, tomato$trt, sep = "_"))
+  trt = as.numeric(ifelse(tomato$trt == "L", 0, "1")),
+  spe = tomato$species
 )
 
 mSol_ulam <- ulam(
   alist(
     hyp ~ dnorm(mu, sigma),
-    mu <- b_t[trt] + b_s[spe] + b_i[inter],
+    mu <- b_s[spe] + b_i[spe]*trt,
     sigma ~ dexp(1),
-    b_t[trt] ~ dnorm(0, 1),
     b_s[spe] ~ dnorm(0, 1),
-    b_i[inter] ~ dnorm(0, 1)
+    b_i[spe] ~ dnorm(0, 1)
   ), data  = d4, cores = 4, chains = 4)
 plot(precis(mSol_ulam, depth= 2))
 ```
@@ -246,16 +244,14 @@ get_prior(hyp ~ trt + spe + trt:spe, data=d5)
 mSol_brms <- brm(hyp ~ trt + spe + trt:spe, data=d5,
                prior=c(
                  set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
-                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
-                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
-                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
-                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
-                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
-                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
-                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
-                 set_prior("normal(0,1)", class = "b", coef = "speS.chmielewskii"),
-                 set_prior("normal(0,1)", class = "b", coef = "spe"),
-                 set_prior("normal(0,1)", class = "b", coef = "trt:spe"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.habrochaites"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.pennellii"),
+                 set_prior("normal(0,1)", class = "b", coef = "speS.peruvianum"),
+                 set_prior("normal(0,1)", class = "b", coef = "trtL"),
+                 set_prior("normal(0,1)", class = "b", coef = "trtL:speS.chmielewskii"),
+                 set_prior("normal(0,1)", class = "b", coef = "trtL:speS.habrochaites"),
+                 set_prior("normal(0,1)", class = "b", coef = "trtL:speS.pennellii"),
+                 set_prior("normal(0,1)", class = "b", coef = "trtL:speS.peruvianum"),
                  set_prior("normal(0,1)", class = "Intercept"),
                  set_prior("exponential(1)", class = "sigma"))
                )

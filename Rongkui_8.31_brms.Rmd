@@ -1,0 +1,79 @@
+---
+title: "Rongkui_8.31"
+author: "Rongkui Han"
+date: "8/30/2020"
+output: html_document
+---
+
+```{r}
+data = read.csv("/Users/rongkui/Desktop/StatisticalRethinking/RethinkingV2_Rongkui.Han/light_round1_tall.csv")
+head(data)
+```
+
+```{r}
+data = data[data$wps == 0 & data$pops == "STDI",]
+dim(data)
+data
+```
+
+```{r}
+data2 = data[data$day == 28,]
+data2
+library(ggplot2)
+ggplot(data, aes(x = temps, y = cumulative_prop_germ, color = day)) +
+  geom_point() +
+  geom_line(aes(group = day)) +
+  ggtitle("All days")
+```
+
+```{r}
+ggplot(data2, aes(x = temps, y = cumulative_prop_germ)) +
+  geom_point() +
+  geom_line() +
+  ggtitle("Day 28")
+```
+
+```{r}
+library(rethinking)
+d = list(germ = data2$cumulative_prop_germ, 
+         temp = data2$temps)
+mod1 = ulam(
+  alist(
+    germ ~ dnorm(mu, sigma),
+    mu <- pop*exp(-0.5 * (temp - opt_temp)^2 / sensitivity),
+    opt_temp ~ dnorm(22.5, 5),
+    sensitivity ~ dexp(0.1),
+    sigma ~ dexp(5),
+    pop ~ dnorm(0.75, 0.1)
+  ), data = d, chains = 4, cores = 4, iter = 2000
+)
+
+precis(mod1)
+```
+
+Prior predictive:
+```{r}
+temp = seq(5, 40, 5)
+mu_sim = c()
+prop_germ_28_sim = c()
+for (i in 1:25) {
+  opt_temp_pr = rnorm(1, 22.5, 5)
+  sensitivity_pr = rexp(1, 0.1)
+  sigma_pr = rexp(1, 5)
+  pop_pr = rnorm(1, 0.75, 0.1)
+  mu = pop_pr*exp(-0.5 * (temp - opt_temp_pr)^2 / sensitivity_pr)
+  new_sim = sapply(mu, function(x) {
+    rnorm(1, mean = x, sd = sigma_pr)
+  })
+  mu_sim = c(mu_sim, mu)
+  prop_germ_28_sim = c(prop_germ_28_sim,new_sim)
+}
+prior_sim = data.frame(temps = temp, prop_germ_28 = prop_germ_28_sim, rep = rep(1:25, each = 8))
+ggplot(prior_sim, aes(x = temps, y = prop_germ_28)) +
+  geom_point() +
+  geom_line(aes(group = rep), alpha = 0.3) +
+  ggtitle("Prior simulatiions")
+```
+
+
+Posterior predi
