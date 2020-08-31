@@ -43,7 +43,7 @@ mod1 = ulam(
     mu <- pop*exp(-0.5 * (temp - opt_temp)^2 / sensitivity),
     opt_temp ~ dnorm(22.5, 5),
     sensitivity ~ dexp(0.1),
-    sigma ~ dexp(5),
+    sigma ~ dexp(50),
     pop ~ dnorm(0.75, 0.1)
   ), data = d, chains = 4, cores = 4, iter = 2000
 )
@@ -59,7 +59,7 @@ prop_germ_28_sim = c()
 for (i in 1:25) {
   opt_temp_pr = rnorm(1, 22.5, 5)
   sensitivity_pr = rexp(1, 0.1)
-  sigma_pr = rexp(1, 5)
+  sigma_pr = rexp(1, 50)
   pop_pr = rnorm(1, 0.75, 0.1)
   mu = pop_pr*exp(-0.5 * (temp - opt_temp_pr)^2 / sensitivity_pr)
   new_sim = sapply(mu, function(x) {
@@ -68,12 +68,17 @@ for (i in 1:25) {
   mu_sim = c(mu_sim, mu)
   prop_germ_28_sim = c(prop_germ_28_sim,new_sim)
 }
-prior_sim = data.frame(temps = temp, prop_germ_28 = prop_germ_28_sim, rep = rep(1:25, each = 8))
-ggplot(prior_sim, aes(x = temps, y = prop_germ_28)) +
+prior_sim = data.frame(temps = temp, mu_28 = mu_sim, prop_germ_28 = prop_germ_28_sim, rep = rep(1:25, each = 8))
+ggplot(prior_sim, aes(x = temps, y = mu_28, color = rep)) +
   geom_point() +
   geom_line(aes(group = rep), alpha = 0.3) +
   ggtitle("Prior simulatiions")
 ```
 
+```{r}
+ggplot(prior_sim, aes(x = temps, y = prop_germ_28, color = rep)) +
+  geom_point() +
+  geom_line(aes(group = rep), alpha = 0.3) +
+  ggtitle("Prior simulatiions")
+```
 
-Posterior predi
